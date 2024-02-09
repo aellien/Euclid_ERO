@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -o /home/ellien/JWST/logs/icl_ERO_${ncl}.out
+#PBS -o /home/ellien/Euclid_ERO/logs/icl_ERO_${ncl}.out
 #PBS -j oe
 #PBS -N icl_JWST
 #PBS -l nodes=1:ppn=2,walltime=47:59:00
