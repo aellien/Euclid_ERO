@@ -1,0 +1,12 @@
+#!/bin/bash
+#PBS -o /home/ellien/JWST/logs/icl_ERO_${ncl}.out
+#PBS -j oe
+#PBS -N icl_JWST
+#PBS -l nodes=1:ppn=2,walltime=47:59:00
+#PSB -S /bin/bash
+
+module load intelpython/3-2020.4
+echo ${n}
+python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO.py ${n}
+
+exit 0
