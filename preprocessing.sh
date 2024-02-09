@@ -43,3 +43,5 @@ astfits $det --copy=INPUT-NO-SKY --output=$nosky --primaryimghdu
 astfits $nosky --copy=0 --output=${nosky:0:-5}_input.fits --primaryimghdu
 astfits $crop --copy=1 --output=${crop:0:-5}_input.fits --primaryimghdu
 done
+
+#test
