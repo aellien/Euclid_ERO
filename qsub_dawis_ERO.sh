@@ -6,7 +6,10 @@
 #PSB -S /bin/bash
 
 #module load intelpython/3-2020.4
+conda init bash
+source /home/ellien/.bashrc
 conda activate dawis
+
 echo ${n}
 echo ${band}
 python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO.py ${n}
