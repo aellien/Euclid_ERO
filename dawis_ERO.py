@@ -23,7 +23,7 @@ lvl_sep_big = 5     # Scale at wich mix_span, max_span & gamma are set to 1, and
 extent_sep = 0.15   # Ratio n_pix/vignet under which the Haar wavelet is used for restoration
 ecc_sep = 0.9      # Eccentricity threshold over which the Haar wavelet is used for restoration
 lvl_sep_lin = 3     # Wavelet scale under which the Haar wavelet can be used for restoration
-max_iter = 5      # Maximum number of iterations
+max_iter = 1500      # Maximum number of iterations
 data_dump = True    # Write data at each iteration /!\ demands lot of space on hardware /!\
 gif = True      # Make gifs of the run (need data_dump = True)
 starting_level = 2 # Starting wavelet scale (this is the third scale - Python convention 0 1 2)
