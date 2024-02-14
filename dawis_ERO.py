@@ -1,6 +1,7 @@
 import os
-import dawis
 import sys
+#sys.path.append("/home/aellien/dawis")
+import dawis
 import shutil
 import cProfile
 from datetime import datetime
@@ -13,8 +14,8 @@ outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelet
 #outdir = '/home/aellien/Euclid_ERO/wavelets/local/'
 
 n_cpus = 8 # Number of CPUs
-tau = 0.1   # Relative Threshold
-gamma = 0.5   # Attenuation (CLEAN) factor
+tau = 0.05   # Relative Threshold
+gamma = 0.2   # Attenuation (CLEAN) factor
 ceps = 5E-6    # Convergence value for epsilon
 n_levels = 11    # Number of wavelet scales
 min_span = 1    # Minimum of wavelet scales spanned by an interscale tree (must be >= 1)
@@ -29,8 +30,8 @@ gif = True      # Make gifs of the run (need data_dump = True)
 starting_level = 2 # Starting wavelet scale (this is the third scale - Python convention 0 1 2)
 conditions = 'prolongation'
 monomodality = True
-threshold_rel = 0.05
-size_patch = 50
+threshold_rel = 0.15
+size_patch = 100
 resume = True
 rm_gamma_for_big = True
 
