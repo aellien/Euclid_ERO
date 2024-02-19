@@ -10,13 +10,13 @@ indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 #indir = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 infile = sys.argv[1]
 #infile = "Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits"
-outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out3/'
-#outdir = '/home/aellien/Euclid_ERO/wavelets/local/run5'
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out4/'
+#outdir = '/home/aellien/Euclid_ERO/wavelets/local/run7'
 
 n_cpus = 8 # Number of CPUs
-tau = 0.9   # Relative Threshold
-gamma = 0.1   # Attenuation (CLEAN) factor
-ceps = 5E-6    # Convergence value for epsilon
+tau = 0.8   # Relative Threshold
+gamma = 0.5   # Attenuation (CLEAN) factor
+ceps = 1E-5    # Convergence value for epsilon
 n_levels = 11    # Number of wavelet scales
 min_span = 1    # Minimum of wavelet scales spanned by an interscale tree (must be >= 1)
 max_span = 2    # Maximum number of wavelet scales spanned by an interscale tree
