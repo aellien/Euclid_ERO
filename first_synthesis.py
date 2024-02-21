@@ -90,18 +90,16 @@ def synthesis_fullfield( oim, nfp, xs, ys, n_levels, C, write_fits = True ):
 
     # Read atoms
     ol, itl = read_image_atoms( nfp, verbose = False )
-
     for j, o in enumerate(ol):
 
         lvlo = o.level
         x_min, y_min, x_max, y_max = o.bbox
-
-        rec[ x_min : x_max, y_min : y_max ] += (o.image - C) #/!\
+        rec[ x_min : x_max, y_min : y_max ] += o.image
 
         # atom weight map
         o.image[o.image > 0.] = 1.
-        wei[ x_min : x_max, y_min : y_max ] += ( o.image - C) #/!\
-
+        wei[ x_min : x_max, y_min : y_max ] += o.image
+    
     res = oim - rec
     if write_fits == True:
 
@@ -118,6 +116,111 @@ def synthesis_fullfield( oim, nfp, xs, ys, n_levels, C, write_fits = True ):
 
     return rec, res, wei
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, C, mscell, mscbcg, kurt_filt = True, write_fits = True ):
+    '''Wavelet Separation + Spatial filtering.
+    ICL --> Atoms with z > lvl_sep, with maximum coordinates within ellipse mask 'mscell' and with size > size_sep_pix.
+    Galaxies --> Satellites + BCG, so a bit complicated:
+        - Atoms not classified as ICL but with maximum coordinates within ellipse mask 'mscbcg'
+        - Atoms within radius 'rc' of a member galaxy position
+        - In case lvl_sep > 5 (arbitrary...), atoms with z > 5 and within 'mscell' are BCG
+    Unclassified --> rest of atoms
+    '''
+    # path, list & variables
+    icl = np.zeros( (xs, ys) )
+    gal = np.zeros( (xs, ys) )
+    im_art = np.zeros( (xs, ys) )
+    im_unclass = np.zeros( (xs, ys) )
+
+    icl_al = []
+    gal_al = []
+    noticl_al = []
+    unclass_al = []
+
+    #%
+    at_test = []
+    #%
+
+    xc = xs / 2.
+    yc = ys / 2.
+
+    # Read atoms
+    ol, itl = read_image_atoms( nfp, verbose = False )
+
+    # Kurtosis + ICL+BCG
+    for j, o in enumerate(ol):
+
+        x_min, y_min, x_max, y_max = o.bbox
+        sx = x_max - x_min
+        sy = y_max - y_min
+        itm = itl[j].interscale_maximum
+        xco = itm.x_max
+        yco = itm.y_max
+        lvlo = o.level
+
+        if kurt_filt == True:
+            k = kurtosis(o.image.flatten(), fisher=True)
+            if k < 0:
+                im_art[ x_min : x_max, y_min : y_max ] += (o.image - C)
+                continue
+
+        # Remove background
+        if o.level >= lvl_sep_max:
+            continue
+
+        # ICL + BCG
+        if mscell[xco, yco] == 1:
+
+            # BCG
+            xbcg, ybcg = xs, ys
+            if mscbcg[xco, yco] == 1:
+
+                dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
+                if (o.level <= 3) & (dr < rc_pix):
+
+                    icl[ x_min : x_max, y_min : y_max ] +=( o.image -C)
+                    icl_al.append([o, xco, yco])
+
+                elif o.level >= 4:
+
+                    icl[ x_min : x_max, y_min : y_max ] += (o.image - C)
+                    icl_al.append([o, xco, yco])
+
+            # ICL
+            else:
+
+                if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
+                    
+                    icl[ x_min : x_max, y_min : y_max ] += (o.image - C)
+                    icl_al.append([o, xco, yco])
+                    at_test.append([xco, yco])
+                    
+                else:
+                    
+                    #gal[ x_min : x_max, y_min : y_max ] += o.image
+                    noticl_al.append([o, xco, yco])
+
+        else:
+            noticl_al.append([ o, xco, yco ])
+
+    #%
+    at_test = np.array(at_test)
+    #%
+
+    icl+= C
+    gal += C
+
+    if write_fits == True:
+        print('\nWS + SF + SS -- ICL+BCG -- write fits as %s*'%(nfp))
+
+        # write to fits
+        hduo = fits.PrimaryHDU(icl)
+        hduo.writeto( nfp + 'synth.icl.bcgwavsizesepmask_%03d_%03d.fits'%(lvl_sep, size_sep_pix), overwrite = True )
+
+        hduo = fits.PrimaryHDU(gal)
+        hduo.writeto( nfp + 'synth.gal.bcgwavsizesepmask_%03d_%03d.fits'%(lvl_sep, size_sep_pix), overwrite = True )
+
+    return icl, gal
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
@@ -125,22 +228,34 @@ if __name__ == '__main__':
     # Paths, lists & variables
     path_data = '/home/aellien/Euclid_ERO/data/'
     path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
-    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out4/'
+    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out5/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
     
     n_levels = 11
+    lvl_sep = 5
+    lvl_sep_max = 9
+    lvl_sep_bcg = 5
+    size_sep_pix = 100
+    rc_pix = 20
+    rell = pyr.open(os.path.join(path_analysis, 'mscell.reg'))
+    rbcg = pyr.open(os.path.join(path_analysis, 'mscbcg.reg'))
     
-    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*crop*')):
+    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*J*crop*')):
         
         hdu = fits.open(input_file)
         oim = hdu[0].data
         xs, ys = oim.shape
         C = np.min(oim)
         oim -= C
+
         head = hdu[0].header
+        mscell = rell.get_mask(hdu = hdu[0]) # not python convention
+        mscbcg = rbcg.get_mask(hdu = hdu[0]) # not python convention
         
         nf = input_file.split('/')[-1][:-4]
         nfp = os.path.join(path_wavelets, nf)
         print(input_file)
+        print(nfp)
         output = synthesis_fullfield( oim, nfp, xs, ys, n_levels, C = C, write_fits = True )
+        #output = synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, C, mscell, mscbcg, kurt_filt = True, write_fits = True)
