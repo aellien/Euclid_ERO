@@ -12,6 +12,6 @@ conda activate dawis
 
 echo ${n}
 echo ${band}
-python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO.py ${n}
+python -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO.py ${n}
 
 exit 0
