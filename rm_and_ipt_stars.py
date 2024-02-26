@@ -26,22 +26,7 @@ from astropy.wcs import WCS
 from astropy.visualization import *
 from astropy.convolution import convolve
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if __name__ == '__main__':
-
-    # Paths, lists & variables
-    path_data = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
-    path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
-    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out5/'
-    path_plots = '/home/aellien/Euclid_ERO/plots'
-    path_analysis = '/home/aellien/Euclid_ERO/analysis/'
-    
-    hdu = fits.open(os.path.join(path_data, 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits'))
-    im = hdu[0].data
-    head = hdu[0].header
-    w = WCS(head)
-    
-    data = np.copy(im)
+def try_iptd_seg():
     bkg_estimator = phut.background.MedianBackground()
     bkg = phut.background.Background2D(data, (50, 50), filter_size=(3, 3), bkg_estimator=bkg_estimator)
     data -= bkg.background
@@ -101,3 +86,31 @@ if __name__ == '__main__':
                interpolation='nearest')
     ax2.set_title('Segmentation Image')
     plt.savefig('/home/aellien/Euclid_ERO/plots/seg.png', format = 'png', dpi = 1000)
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if __name__ == '__main__':
+
+    # Paths, lists & variables
+    path_data = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
+    path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
+    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out5/'
+    path_plots = '/home/aellien/Euclid_ERO/plots'
+    path_analysis = '/home/aellien/Euclid_ERO/analysis/'
+    
+    hdu = fits.open(os.path.join(path_data, 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits'))
+    im = hdu[0].data
+    head = hdu[0].header
+    w = WCS(head)
+    
+    data = np.copy(im)
+    peaks_tbl = phut.detection.find_peaks(data, threshold = 10E4)
+    peaks_tbl['peak_value'].info.format = '%.8g'
+    
+    size = 25
+    hsize = (size - 1) / 2
+    x = peaks_tbl['x_peak']  
+    y = peaks_tbl['y_peak']  
+
+    mask = ((x > hsize) & (x < (data.shape[1] -1 - hsize)) &\
+        (y > hsize) & (y < (data.shape[0] -1 - hsize))) 

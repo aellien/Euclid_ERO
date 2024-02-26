@@ -9,17 +9,17 @@ from datetime import datetime
 indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 #indir = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 infile = sys.argv[1]
-#infile = "Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits"
-outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out10/'
-#outdir = '/home/aellien/Euclid_ERO/wavelets/local/run11'
+#infile = 'gauss_star_test.fits'#"Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits"
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out11/'
+#outdir = '/home/aellien/Euclid_ERO/wavelets/local/run14'
 
-n_cpus = 8 # Number of CPUs
+n_cpus = 2 # Number of CPUs
 tau = 0.9   # Relative Threshold
-gamma = 0.02   # Attenuation (CLEAN) factor
-ceps = 1E-8    # Convergence value for epsilon
+gamma = 0.1   # Attenuation (CLEAN) factor
+ceps = 1E-4    # Convergence value for epsilon
 n_levels = 4    # Number of wavelet scales
-min_span = 1    # Minimum of wavelet scales spanned by an interscale tree (must be >= 1)
-max_span = 2    # Maximum number of wavelet scales spanned by an interscale tree
+min_span = 2    # Minimum of wavelet scales spanned by an interscale tree (must be >= 1)
+max_span = 3    # Maximum number of wavelet scales spanned by an interscale tree
 lvl_sep_big = 5     # Scale at wich mix_span, max_span & gamma are set to 1, and monomodality is enforced
 extent_sep = 0.1   # Ratio n_pix/vignet under which the Haar wavelet is used for restoration
 ecc_sep = 0.05      # Eccentricity threshold over which the Haar wavelet is used for restoration
