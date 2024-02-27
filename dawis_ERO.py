@@ -12,7 +12,9 @@ infile = sys.argv[1]
 #infile = 'gauss_star_test.fits'#"Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits"
 outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out13/'
 #outdir = '/home/aellien/Euclid_ERO/wavelets/local/run14'
-
+if os.path.isdir( outdir ) == False:
+    os.makedirs( outdir, exist_ok = True )
+    
 n_cpus = 2 # Number of CPUs
 tau = 0.8   # Relative Threshold
 gamma = 0.2   # Attenuation (CLEAN) factor
