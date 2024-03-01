@@ -87,7 +87,6 @@ def try_iptd_seg():
     ax2.set_title('Segmentation Image')
     plt.savefig('/home/aellien/Euclid_ERO/plots/seg.png', format = 'png', dpi = 1000)
 
-
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
 
