@@ -1,8 +1,6 @@
 #!/bin/bash
 
-for file in Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits\
-            Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop_warp_input.fits Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop_warp_input.fits Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop_warp_input.fits \
-            Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop_congrid.fits Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop_congrid.fits Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop_congrid.fits
+for file in Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits
 do
       echo "Launch Dawis on file $file"
       band=${file:12:1}
