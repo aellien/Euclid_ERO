@@ -17,6 +17,7 @@ import random
 import pandas as pd
 import ray
 import dawis as d
+import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.visualization import *
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -24,7 +25,7 @@ from skimage.morphology import binary_dilation
 from scipy.stats import kurtosis
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def read_image_atoms( nfp, filter_it = None, verbose = False ):
+def read_image_atoms( nfp, filter_it = None, verbose = True ):
 
     # Object lists
     if filter_it == None:
@@ -65,7 +66,7 @@ def read_image_atoms( nfp, filter_it = None, verbose = False ):
     return tol, titl
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_fullfield( oim, nfp, xs, ys, n_levels, C, write_fits = True ):
+def synthesis_fullfield( oim, nfp, xs, ys, n_levels, write_fits = True ):
     '''Synthesis of the full astronomical field (e.g. sum of all atoms)
     --- Args:
     oim         # Original astronomical field
@@ -85,21 +86,43 @@ def synthesis_fullfield( oim, nfp, xs, ys, n_levels, C, write_fits = True ):
     res = np.zeros( (xs, ys) )
     rec = np.zeros( (xs, ys) )
     wei = np.zeros( (xs, ys) )
+    rec_dc = np.zeros((n_levels, xs, ys))
     xc = xs / 2.
     yc = ys / 2.
 
     # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
-    for j, o in enumerate(ol):
-
-        lvlo = o.level
-        x_min, y_min, x_max, y_max = o.bbox
-        rec[ x_min : x_max, y_min : y_max ] += o.image
-
-        # atom weight map
-        o.image[o.image > 0.] = 1.
-        wei[ x_min : x_max, y_min : y_max ] += o.image
+    #ol, itl = read_image_atoms( nfp, verbose = True ) MEMORY ISSUE
     
+    ######################################## MEMORY
+    opath = nfp + '*ol.it*.pkl'
+    itpath = nfp + '*itl.it*.pkl'
+    opathl = glob.glob(opath)
+    opathl.sort()
+
+    # Interscale tree lists
+
+    itpathl = glob.glob(itpath)
+    itpathl.sort()
+
+    tol = []
+    titl = []
+
+    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        ol = d.read_objects_from_pickle( op )
+        itl = d.read_interscale_trees_from_pickle( itlp )
+        ############################################################## MEMORY
+        for j, o in enumerate(ol):
+            
+            lvlo = o.level
+            x_min, y_min, x_max, y_max = o.bbox
+            rec[ x_min : x_max, y_min : y_max ] += o.image
+            rec_dc[ lvlo, x_min : x_max, y_min : y_max ] += o.image
+            
+            # atom weight map
+            o.image[o.image > 0.] = 1.
+            wei[ x_min : x_max, y_min : y_max ] += o.image
+        
     res = oim - rec
     if write_fits == True:
 
@@ -113,11 +136,14 @@ def synthesis_fullfield( oim, nfp, xs, ys, n_levels, C, write_fits = True ):
 
         hduo = fits.PrimaryHDU(wei)
         hduo.writeto( nfp + 'synth.weight.fits', overwrite = True )
+        
+        hduo = fits.PrimaryHDU(rec_dc)
+        hduo.writeto( nfp + 'synth.restored_dc.fits', overwrite = True )
 
     return rec, res, wei
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, C, mscell, mscbcg, kurt_filt = True, write_fits = True ):
+def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, mscell, mscbcg, kurt_filt = True, write_fits = True ):
     '''Wavelet Separation + Spatial filtering.
     ICL --> Atoms with z > lvl_sep, with maximum coordinates within ellipse mask 'mscell' and with size > size_sep_pix.
     Galaxies --> Satellites + BCG, so a bit complicated:
@@ -145,7 +171,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
     yc = ys / 2.
 
     # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
+    ol, itl = read_image_atoms( nfp, verbose = True )
 
     # Kurtosis + ICL+BCG
     for j, o in enumerate(ol):
@@ -157,11 +183,11 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
         xco = itm.x_max
         yco = itm.y_max
         lvlo = o.level
-
+    
         if kurt_filt == True:
             k = kurtosis(o.image.flatten(), fisher=True)
             if k < 0:
-                im_art[ x_min : x_max, y_min : y_max ] += (o.image - C)
+                im_art[ x_min : x_max, y_min : y_max ] += o.image
                 continue
 
         # Remove background
@@ -178,12 +204,12 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
                 dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
                 if (o.level <= 3) & (dr < rc_pix):
 
-                    icl[ x_min : x_max, y_min : y_max ] +=( o.image -C)
+                    icl[ x_min : x_max, y_min : y_max ] += o.image
                     icl_al.append([o, xco, yco])
 
-                elif o.level >= 4:
+                elif o.level > 3 :
 
-                    icl[ x_min : x_max, y_min : y_max ] += (o.image - C)
+                    icl[ x_min : x_max, y_min : y_max ] += o.image
                     icl_al.append([o, xco, yco])
 
             # ICL
@@ -191,7 +217,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
 
                 if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
                     
-                    icl[ x_min : x_max, y_min : y_max ] += (o.image - C)
+                    icl[ x_min : x_max, y_min : y_max ] += o.image
                     icl_al.append([o, xco, yco])
                     at_test.append([xco, yco])
                     
@@ -202,14 +228,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
 
         else:
             noticl_al.append([ o, xco, yco ])
-
-    #%
-    at_test = np.array(at_test)
-    #%
-
-    icl+= C
-    gal += C
-
+            
     if write_fits == True:
         print('\nWS + SF + SS -- ICL+BCG -- write fits as %s*'%(nfp))
 
@@ -228,34 +247,32 @@ if __name__ == '__main__':
     # Paths, lists & variables
     path_data = '/home/aellien/Euclid_ERO/data/'
     path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
-    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out5/'
+    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out1/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
     
     n_levels = 11
-    lvl_sep = 5
-    lvl_sep_max = 9
+    lvl_sep = 6
+    lvl_sep_max = 12
     lvl_sep_bcg = 5
-    size_sep_pix = 100
-    rc_pix = 20
+    size_sep_pix = 10
+    rc_pix = 10
     rell = pyr.open(os.path.join(path_analysis, 'mscell.reg'))
     rbcg = pyr.open(os.path.join(path_analysis, 'mscbcg.reg'))
-    
-    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*J*crop*')):
+
+    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*H*crop.fits')):
         
         hdu = fits.open(input_file)
         oim = hdu[0].data
         xs, ys = oim.shape
-        C = np.min(oim)
-        oim -= C
 
         head = hdu[0].header
         mscell = rell.get_mask(hdu = hdu[0]) # not python convention
         mscbcg = rbcg.get_mask(hdu = hdu[0]) # not python convention
-        
-        nf = input_file.split('/')[-1][:-4]
+
+        nf = input_file.split('/')[-1][:-5]
         nfp = os.path.join(path_wavelets, nf)
         print(input_file)
         print(nfp)
-        output = synthesis_fullfield( oim, nfp, xs, ys, n_levels, C = C, write_fits = True )
-        #output = synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, C, mscell, mscbcg, kurt_filt = True, write_fits = True)
+        output = synthesis_fullfield( oim, nfp, xs, ys, n_levels, write_fits = True )
+        #output = synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, mscell, mscbcg, kurt_filt = False, write_fits = True)
