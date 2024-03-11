@@ -8,7 +8,7 @@ from datetime import datetime
 
 indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 infile = sys.argv[1]
-outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out1/'
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out2/'
 
 if os.path.isdir( outdir ) == False:
     os.makedirs( outdir, exist_ok = True )
@@ -26,6 +26,7 @@ min_span = 1    # Minimum of wavelet scales spanned by an interscale tree (must 
 max_span = 2    # Maximum number of wavelet scales spanned by an interscale tree
 lvl_deblend = 3 # Scale at which the regions of significant wavelet coefficients are deblended
 lvl_sep_big = 5     # Scale at wich mix_span, max_span & gamma are set to 1, and monomodality is enforced
+lvl_sep_op = 4  # Scale at which synthesis operator switch from SUM to ADJOINT
 rm_gamma_for_big = True # If set to true, the attenuation factor is not applied for scales higher than lvl_sep_big
 
 extent_sep = 0.15   # Ratio n_pix/vignet under which the Haar wavelet is used for restoration
