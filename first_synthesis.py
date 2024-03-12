@@ -269,7 +269,7 @@ if __name__ == '__main__':
     path_scripts = '/home/ellien/Euclid_ERO/Euclid_ERO_scripts'
     path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out4/'
     path_plots = '/home/ellien/Euclid_ERO/plots'
-    path_analysis = '/home/ellien/Euclid_ERO/analysis/'
+    path_analysis = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
     
     n_levels = 11
     lvl_sep = 6
@@ -277,8 +277,8 @@ if __name__ == '__main__':
     lvl_sep_bcg = 5
     size_sep_pix = 10
     rc_pix = 10
-    rell = pyr.open(os.path.join(path_analysis, 'mscell.reg'))
-    rbcg = pyr.open(os.path.join(path_analysis, 'mscbcg.reg'))
+    mscell = fits.getdata(os.path.join(path_data,'mscell.reg'))
+    mscbcg = fits.getdata(os.path.join(path_data,'mscbcg.reg'))
 
     for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*crop.fits')):
         
@@ -287,8 +287,6 @@ if __name__ == '__main__':
         xs, ys = oim.shape
 
         head = hdu[0].header
-        mscell = rell.get_mask(hdu = hdu[0]) # not python convention
-        mscbcg = rbcg.get_mask(hdu = hdu[0]) # not python convention
 
         nf = input_file.split('/')[-1][:-5]
         nfp = os.path.join(path_wavelets, nf)
