@@ -171,63 +171,83 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
     yc = ys / 2.
 
     # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = True )
-
-    # Kurtosis + ICL+BCG
-    for j, o in enumerate(ol):
-
-        x_min, y_min, x_max, y_max = o.bbox
-        sx = x_max - x_min
-        sy = y_max - y_min
-        itm = itl[j].interscale_maximum
-        xco = itm.x_max
-        yco = itm.y_max
-        lvlo = o.level
+    #ol, itl = read_image_atoms( nfp, verbose = True ) MEMORY ISSUE
     
-        if kurt_filt == True:
-            k = kurtosis(o.image.flatten(), fisher=True)
-            if k < 0:
-                im_art[ x_min : x_max, y_min : y_max ] += o.image
+    ######################################## MEMORY
+    opath = nfp + '*ol.it*.pkl'
+    itpath = nfp + '*itl.it*.pkl'
+    opathl = glob.glob(opath)
+    opathl.sort()
+
+    # Interscale tree lists
+
+    itpathl = glob.glob(itpath)
+    itpathl.sort()
+
+    tol = []
+    titl = []
+
+    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        ol = d.read_objects_from_pickle( op )
+        itl = d.read_interscale_trees_from_pickle( itlp )
+        ############################################################## MEMORY
+
+        # Kurtosis + ICL+BCG
+        for j, o in enumerate(ol):
+    
+            x_min, y_min, x_max, y_max = o.bbox
+            sx = x_max - x_min
+            sy = y_max - y_min
+            itm = itl[j].interscale_maximum
+            xco = itm.x_max
+            yco = itm.y_max
+            lvlo = o.level
+        
+            if kurt_filt == True:
+                k = kurtosis(o.image.flatten(), fisher=True)
+                if k < 0:
+                    im_art[ x_min : x_max, y_min : y_max ] += o.image
+                    continue
+    
+            # Remove background
+            if o.level >= lvl_sep_max:
                 continue
-
-        # Remove background
-        if o.level >= lvl_sep_max:
-            continue
-
-        # ICL + BCG
-        if mscell[xco, yco] == 1:
-
-            # BCG
-            xbcg, ybcg = xs, ys
-            if mscbcg[xco, yco] == 1:
-
-                dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
-                if (o.level <= 3) & (dr < rc_pix):
-
-                    icl[ x_min : x_max, y_min : y_max ] += o.image
-                    icl_al.append([o, xco, yco])
-
-                elif o.level > 3 :
-
-                    icl[ x_min : x_max, y_min : y_max ] += o.image
-                    icl_al.append([o, xco, yco])
-
-            # ICL
-            else:
-
-                if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
-                    
-                    icl[ x_min : x_max, y_min : y_max ] += o.image
-                    icl_al.append([o, xco, yco])
-                    at_test.append([xco, yco])
-                    
+    
+            # ICL + BCG
+            if mscell[xco, yco] == 1:
+    
+                # BCG
+                xbcg, ybcg = xs, ys
+                if mscbcg[xco, yco] == 1:
+    
+                    dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
+                    if (o.level <= 3) & (dr < rc_pix):
+    
+                        icl[ x_min : x_max, y_min : y_max ] += o.image
+                        icl_al.append([o, xco, yco])
+    
+                    elif o.level > 3 :
+    
+                        icl[ x_min : x_max, y_min : y_max ] += o.image
+                        icl_al.append([o, xco, yco])
+    
+                # ICL
                 else:
-                    
-                    #gal[ x_min : x_max, y_min : y_max ] += o.image
-                    noticl_al.append([o, xco, yco])
-
-        else:
-            noticl_al.append([ o, xco, yco ])
+    
+                    if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
+                        
+                        icl[ x_min : x_max, y_min : y_max ] += o.image
+                        icl_al.append([o, xco, yco])
+                        at_test.append([xco, yco])
+                        
+                    else:
+                        
+                        #gal[ x_min : x_max, y_min : y_max ] += o.image
+                        noticl_al.append([o, xco, yco])
+    
+            else:
+                noticl_al.append([ o, xco, yco ])
             
     if write_fits == True:
         print('\nWS + SF + SS -- ICL+BCG -- write fits as %s*'%(nfp))
@@ -245,11 +265,11 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
 if __name__ == '__main__':
 
     # Paths, lists & variables
-    path_data = '/home/aellien/Euclid_ERO/data/'
-    path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
-    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out1/'
-    path_plots = '/home/aellien/Euclid_ERO/plots'
-    path_analysis = '/home/aellien/Euclid_ERO/analysis/'
+    path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
+    path_scripts = '/home/ellien/Euclid_ERO/Euclid_ERO_scripts'
+    path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out4/'
+    path_plots = '/home/ellien/Euclid_ERO/plots'
+    path_analysis = '/home/ellien/Euclid_ERO/analysis/'
     
     n_levels = 11
     lvl_sep = 6
@@ -260,7 +280,7 @@ if __name__ == '__main__':
     rell = pyr.open(os.path.join(path_analysis, 'mscell.reg'))
     rbcg = pyr.open(os.path.join(path_analysis, 'mscbcg.reg'))
 
-    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*H*crop.fits')):
+    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*crop.fits')):
         
         hdu = fits.open(input_file)
         oim = hdu[0].data
@@ -275,4 +295,4 @@ if __name__ == '__main__':
         print(input_file)
         print(nfp)
         output = synthesis_fullfield( oim, nfp, xs, ys, n_levels, write_fits = True )
-        #output = synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, mscell, mscbcg, kurt_filt = False, write_fits = True)
+        output = synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep_pix, xs, ys, rc_pix, n_levels, mscell, mscbcg, kurt_filt = False, write_fits = True)
