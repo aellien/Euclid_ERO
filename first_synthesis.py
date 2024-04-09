@@ -277,8 +277,8 @@ if __name__ == '__main__':
     lvl_sep_bcg = 5
     size_sep_pix = 10
     rc_pix = 10
-    mscell = fits.getdata(os.path.join(path_data,'mscell.reg'))
-    mscbcg = fits.getdata(os.path.join(path_data,'mscbcg.reg'))
+    mscell = fits.getdata(os.path.join(path_data,'mscell.fits'))
+    mscbcg = fits.getdata(os.path.join(path_data,'mscbcg.fits'))
 
     for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*crop.fits')):
         
