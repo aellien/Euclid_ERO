@@ -12,16 +12,9 @@ sys.path.append("/home/aellien/dawis")
 import glob as glob
 import os
 import numpy as np
-import pyregion as pyr
-import random
-import pandas as pd
-import ray
 import dawis as d
-import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.visualization import *
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from skimage.morphology import binary_dilation
 from scipy.stats import kurtosis
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
