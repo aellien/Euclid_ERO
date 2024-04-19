@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#SBATCH --output /home/ellien/Euclid_ERO/Euclid_ERO_scripts/test_ray_slurm/%x.%j.out 
+#SBATCH --error  /home/ellien/Euclid_ERO/Euclid_ERO_scripts/test_ray_slurm/%x.%j.err
 #SBATCH --time=00:10:00
 
 ### This script works for any number of nodes, Ray will find and manage all resources
