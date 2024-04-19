@@ -122,18 +122,22 @@ if __name__ == '__main__':
     plt.figure(1)
     plt.imshow(colors[2] - colors[1], cmap = 'seismic_r', origin='lower', vmax = 2, vmin = -2)
     plt.suptitle("H-Y color map")
+    plt.colorbar()
     plt.savefig(os.path.join(path_plots, 'color_vor_HY.png'))
     
     # HJ
     plt.figure(2)
     plt.imshow(colors[2] - colors[0], cmap = 'seismic_r', origin='lower', vmax = 2, vmin = -2)
     plt.suptitle("H-J color map")
+    plt.colorbar()
     plt.savefig(os.path.join(path_plots, 'color_vor_HJ.png'))
     
     # JY
     plt.figure(3)
     plt.imshow(colors[0] - colors[1], cmap = 'seismic_r', origin='lower', vmax = 2, vmin = -2)
     plt.suptitle("J-Y color map")
+    plt.colorbar()
     plt.savefig(os.path.join(path_plots, 'color_vor_JY.png'))
+    
     
     plt.show()

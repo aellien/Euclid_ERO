@@ -26,6 +26,8 @@ if __name__ == '__main__':
     path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out4/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
+    
+    rpl = []
         
     for input_file in glob.glob(os.path.join(path_data, '*crop.fits')):
         
@@ -76,6 +78,18 @@ if __name__ == '__main__':
         ax3.set_title('BCG+ICL radial profile')
         plt.legend()
         plt.tight_layout()
-        plt.savefig(os.path.join(path_plots,'icl_rec_rp_%s_band.png'%nf[12]), format = 'png')        
+        plt.savefig(os.path.join(path_plots,'icl_rec_rp_%s_band.png'%nf[12]), format = 'png')       
+        
+        mag = -2.5 * np.log10(rp.profile)
+        
+        rpl.append((mag[mask],rad_kpc))
 
+
+    plt.figure()
+    rad_kpc = rp.radius * 0.3 * 3.68
+    idx = np.min([np.size(rpl[1][0]), np.size(rpl[0][0])])
+    plt.plot(rad_kpc[:idx], rpl[0][0][:idx]-rpl[1][0][:idx], 'bo')
+    plt.gca().invert_yaxis()
+    plt.title('radial profile J-Y')
+    plt.savefig(os.path.join(path_plots,'JY_rp.png'), format = 'png')
     plt.show()

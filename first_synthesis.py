@@ -273,7 +273,7 @@ if __name__ == '__main__':
     mscell = fits.getdata(os.path.join(path_data,'mscell.fits'))
     mscbcg = fits.getdata(os.path.join(path_data,'mscbcg.fits'))
 
-    for input_file in glob.glob(os.path.join(path_data, 'Euclid-NISP-Stack-ERO-Abell2390.DR3/*crop.fits')):
+    for input_file in glob.glob(os.path.join(path_data, '*crop.fits')):
         
         hdu = fits.open(input_file)
         oim = hdu[0].data
