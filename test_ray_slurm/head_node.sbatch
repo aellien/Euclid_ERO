@@ -1,8 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 sbatch <<EOT
-#SBATCH --output /home/ellien/Euclid_ERO/Euclid_ERO_scripts/test_ray_slurm/head_%x.%j.out 
-#SBATCH --error  /home/ellien/Euclid_ERO/Euclid_ERO_scripts/test_ray_slurm/head_%x.%j.err
-#SBATCH --time=00:10:00
+#!/bin/bash
+
+#SBATCH --output /n03data/ellien/Euclid_ERO/logs/head_%x.%j.out 
+#SBATCH --error  /n03data/ellien/Euclid_ERO/logs/head_%x.%j.err
+#SBATCH --time=$1
 ### This script works for any number of nodes, Ray will find and manage all resources
 #SBATCH --nodes=1
 
@@ -29,6 +31,7 @@ fi
 fi
 port=6379
 
-echo "STARTING HEAD at $head_node"
+echo "STARTING HEAD at $head_node with time=$1"
 echo "Head node IP: $head_node_ip"
 ray start --head
+sleep infinity

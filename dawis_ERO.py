@@ -1,6 +1,5 @@
 import os
 import sys
-sys.path.append("/home/aellien/dawis")
 import dawis
 import shutil
 import cProfile
@@ -8,7 +7,7 @@ from datetime import datetime
 
 indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 infile = sys.argv[1]
-outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out3/'
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out5/'
 
 if os.path.isdir( outdir ) == False:
     os.makedirs( outdir, exist_ok = True )
