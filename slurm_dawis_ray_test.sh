@@ -9,6 +9,5 @@
 
 source /home/ellien/.bashrc
 conda activate dawis
-
 python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO_ray_test.py
 exit 0
