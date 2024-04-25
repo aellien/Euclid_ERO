@@ -39,7 +39,7 @@ conditions = 'prolongation' # Border conditions for wavelet convolution
 n_cpus = 12 # Number of CPUs
 if ray.is_initialized():
     ray.shutdown()
-ray.init(address = '10.0.20.23')
+ray.init(address = '10.0.20.23:6379')
 size_patch = 100 # Number of objects in parallelized patch
 
 resume = True 
