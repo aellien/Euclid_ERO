@@ -37,7 +37,6 @@ gif = True      # Make gifs of the run (need data_dump = True)
 conditions = 'prolongation' # Border conditions for wavelet convolution
 
 n_cpus = 12 # Number of CPUs
-ray.shutdown()
 ray.init()
 size_patch = 100 # Number of objects in parallelized patch
 
