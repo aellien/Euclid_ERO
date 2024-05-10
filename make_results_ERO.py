@@ -490,7 +490,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
         hdu_gal = fits.ImageHDU(gal, name = 'SATELLITES')
         #hduo.writeto( nfp + 'synth.residuals.fits', overwrite = True )
         
-        hdu_tot = fits.ImageHDU(gal + icl, name = 'ICL+BCG+SATELLITES')
+        hdu_tot = fits.ImageHDU(gal+icl, name = 'ICL+BCG+SATELLITES')
         
         hdu_icl_dei = fits.ImageHDU(icl_dei, name = 'ICL+BCG DET. ERR.')
 
