@@ -1377,7 +1377,7 @@ if __name__ == '__main__':
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
     '''
-    nfl = [ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits' ]
+    nfl = [ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits' ]
 
     lvl_sepl = [ 4, 5, 6 ] # wavelet scale separation
     size_sepl = [ 60, 80, 100, 140, 200 ] # size separation [kpc]
