@@ -49,9 +49,9 @@ if os.path.isdir( outdir ) == False:
 
 shutil.copyfile( os.path.abspath(__file__), os.path.join( outdir, 'input.dawis.py' ) )
 
-results = ray.get([dawis.synthesis_by_analysis.remote( indir = indir, infile = infile, outdir = outdir, n_cpus = n_cpus, starting_level = starting_level, tau = tau, n_levels = n_levels, n_sigmas = n_sigmas,\
+results = ray.get([ray.remote(dawis.synthesis_by_analysis.remote( indir = indir, infile = infile, outdir = outdir, n_cpus = n_cpus, starting_level = starting_level, tau = tau, n_levels = n_levels, n_sigmas = n_sigmas,\
                                 gamma = gamma, min_span = min_span, max_span = max_span, lvl_sep_big = lvl_sep_big, rm_gamma_for_big = rm_gamma_for_big, lvl_deblend = lvl_deblend, \
                                 extent_sep = extent_sep, ecc_sep = ecc_sep, lvl_sep_lin = lvl_sep_lin, ceps = ceps, scale_lvl_eps = scale_lvl_eps, conditions = conditions, deconv = deconv, \
-                                max_iter = max_iter, size_patch = size_patch, inpaint_res = inpaint_res, data_dump = data_dump, gif = gif, iptd_sigma = iptd_sigma, resume = resume )
+                                max_iter = max_iter, size_patch = size_patch, inpaint_res = inpaint_res, data_dump = data_dump, gif = gif, iptd_sigma = iptd_sigma, resume = resume ))
                                 for infile in infile_list])
 ray.shutdown()

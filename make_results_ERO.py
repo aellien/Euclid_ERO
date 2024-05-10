@@ -7,55 +7,16 @@ import pyregion as pyr
 import random
 import pandas as pd
 import ray
+import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.visualization import *
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from skimage.morphology import binary_dilation
 from scipy.stats import kurtosis
+import gc
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def read_image_atoms( nfp, filter_it = None, verbose = False ):
-
-    # Object lists
-    if filter_it == None:
-        opath = nfp + '*ol.it*.pkl'
-        itpath = nfp + '*itl.it*.pkl'
-    else:
-        opath = nfp + '*ol.it' + filter_it  + '.pkl'
-        itpath = nfp + '*itl.it' + filter_it + '.pkl'
-
-    opathl = glob.glob(opath)
-    opathl.sort()
-
-    # Interscale tree lists
-
-    itpathl = glob.glob(itpath)
-    itpathl.sort()
-
-    tol = []
-    titl = []
-
-    if verbose:
-        print('Reading %s.'%(opath))
-        print('Reading %s.'%(itpath))
-
-    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
-
-        if verbose :
-            print('Iteration %d' %(i), end ='\r')
-
-        ol = d.read_objects_from_pickle( op )
-        itl = d.read_interscale_trees_from_pickle( itlp )
-
-        for j, o in enumerate(ol):
-
-            tol.append(o)
-            titl.append(itl[j])
-
-    return tol, titl
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_fullfield( oim, nfp, gamma, lvl_sep_big, xs, ys, n_levels, rm_gamma_for_big = True, write_fits = True ):
+def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
     '''Synthesis of the full astronomical field (e.g. sum of all atoms)
     --- Args:
     oim         # Original astronomical field
@@ -71,47 +32,66 @@ def synthesis_fullfield( oim, nfp, gamma, lvl_sep_big, xs, ys, n_levels, rm_gamm
     res         # residuals (original - rec)
     '''
     # path, list & variables
-    res = np.zeros( (xs, ys) )
-    rec = np.zeros( (xs, ys) )
-    wei = np.zeros( (xs, ys) )
-    xc = xs / 2.
-    yc = ys / 2.
+    res = np.zeros((xs, ys))
+    rec = np.zeros((xs, ys))
+    wei = np.zeros((xs, ys))
+    dei = np.zeros((xs, ys))
+    
+    ######################################## MEMORY
+    opath = nfp + '*ol.it*.pkl'
+    itpath = nfp + '*itl.it*.pkl'
+    opathl = glob.glob(opath)
+    opathl.sort()
 
-    # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
+    # Interscale tree lists
+    itpathl = glob.glob(itpath)
+    itpathl.sort()
 
-    for j, o in enumerate(ol):
+    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        gc.collect()
+        ol = d.store_objects.read_ol_from_pickle(op)
+        itl = d.store_objects.read_itl_from_pickle(itlp)
+        ############################################################## MEMORY
+        for o, it in zip(ol, itl):
 
-        lvlo = o.level
-        x_min, y_min, x_max, y_max = o.bbox
-
-        if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
+            x_min, y_min, x_max, y_max = o.bbox
             rec[ x_min : x_max, y_min : y_max ] += o.image
-        else:
-            rec[ x_min : x_max, y_min : y_max ] += o.image * gamma
 
-        # atom weight map
-        o.image[o.image > 0.] = 1.
-        wei[ x_min : x_max, y_min : y_max ] += o.image
-
+            # atom weight map
+            o.image[o.image > 0.] = 1.
+            wei[ x_min : x_max, y_min : y_max ] += o.image
+            
+            # detection error image
+            dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+            
     res = oim - rec
     if write_fits == True:
 
         print('\nFULLFIELD -- write fits as %s*fits'%(nfp))
+        
+        hdu = fits.PrimaryHDU()
+        
+        hdu_oim = fits.ImageHDU(oim, name = 'ORIGINAL')
+        hdu_rec = fits.ImageHDU(rec, name = 'RESTORED')
+        #hduo.writeto( nfp + 'synth.restored.fits', overwrite = True )
 
-        hduo = fits.PrimaryHDU(rec)
-        hduo.writeto( nfp + 'synth.restored.fits', overwrite = True )
+        hdu_res = fits.ImageHDU(res, name = 'RESIDUALS')
+        #hduo.writeto( nfp + 'synth.residuals.fits', overwrite = True )
 
-        hduo = fits.PrimaryHDU(res)
-        hduo.writeto( nfp + 'synth.residuals.fits', overwrite = True )
+        hdu_wei = fits.ImageHDU(wei, name = 'WEIGHTS')
+        #hduo.writeto( nfp + 'synth.weight.fits', overwrite = True )
+        
+        hdu_dei = fits.ImageHDU(dei, name = 'DETECT. ERROR')
+        #hduo.writeto( nfp + 'synth.deterr.fits', overwrite = True )
+        
+        hdul = fits.HDUList([hdu, hdu_oim, hdu_rec, hdu_res, hdu_wei, hdu_dei])
+        hdul.writeto(nfp + 'synth.full_field.fits', overwrite = True)
 
-        hduo = fits.PrimaryHDU(wei)
-        hduo.writeto( nfp + 'synth.weight.fits', overwrite = True )
-
-    return rec, res, wei
+    return rec, res, wei, dei
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma, xs, ys, Jy_lim, mscsedl):
+def selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma, xs, ys, flux_lim, mscsedl):
     '''Computation of classification error on flux.
     '''
     # Output array
@@ -148,7 +128,7 @@ def selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma,
             else:
                 im_s[ x_min : x_max, y_min : y_max ] += o.image * gamma
                 #flux += np.sum(o.image) * gamma
-        flux = np.sum(im_s[im_s >= Jy_lim])
+        flux = np.sum(im_s[im_s >= flux_lim])
         flux_sample.append(flux)
 
         line = []
@@ -248,12 +228,10 @@ def PR_with_selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big
     return PR_results
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_wavsep( nfp, gamma, lvl_sep_big, lvl_sep, xs, ys, n_levels, rm_gamma_for_big = True, kurt_filt = False, plot_vignet = False, write_fits = True ):
+def synthesis_wavsep( nfp, lvl_sep, xs, ys, n_levels, kurt_filt = False, plot_vignet = False, write_fits = True ):
     '''Simple separation based on wavelet scale, given by parameter 'lvl_sep'.
     --- Args:
     nfp         # root path of *.pkl
-    gamma       # attenuation factor
-    lvl_sep_big # wavelet scale at which gamma set to 1
     lvl_sep     # wavelet scale threshold for the separation
     xs, ys      # image size
     n_levels    # number of wavelet scales
@@ -266,47 +244,41 @@ def synthesis_wavsep( nfp, gamma, lvl_sep_big, lvl_sep, xs, ys, n_levels, rm_gam
     icl = np.zeros( (xs, ys) )
     gal = np.zeros( (xs, ys) )
     im_art = np.zeros((xs, ys))
+    
+    ######################################## MEMORY v
+    opath = nfp + '*ol.it*.hdf5'
+    itpath = nfp + '*itl.it*.hdf5'
+    opathl = glob.glob(opath)
+    opathl.sort()
 
-    xc = xs / 2.
-    yc = ys / 2.
+    # Interscale tree lists
+    itpathl = glob.glob(itpath)
+    itpathl.sort()
 
-    # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
+    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        gc.collect()
+        ol = d.store_objects.read_ol_from_hdf5(op)
+        itl = d.store_objects.read_itl_from_hdf5(itlp)
 
-    onb = len(ol)
-    filtered_onb = 0
+        for o, it in zip(ol, itl):
+            ######################################## MEMORY ^
+            
+            x_min, y_min, x_max, y_max = o.bbox
 
-    for j, o in enumerate(ol):
-
-        x_min, y_min, x_max, y_max = o.bbox
-
-        if kurt_filt == True:
-            k = kurtosis(o.image.flatten(), fisher=True)
-            if k < 0:
-                filtered_onb += 1
-                if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
-                    im_art[ x_min : x_max, y_min : y_max ] += o.image
-                else:
-                    im_art[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                continue
-
-        lvlo = o.level
-
-        if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
+            if kurt_filt == True:
+                k = kurtosis(o.image.flatten(), fisher=True)
+                if k < 0:
+                    filtered_onb += 1
+                    if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
+                        im_art[ x_min : x_max, y_min : y_max ] += o.image
+                    continue
 
             if o.level >= lvl_sep:
                 icl[ x_min : x_max, y_min : y_max ] += o.image
             else:
                 gal[ x_min : x_max, y_min : y_max ] += o.image
 
-        else:
-
-            if o.level >= lvl_sep:
-                icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-            else:
-                gal[ x_min : x_max, y_min : y_max ] += o.image * gamma
-
-    print('Kurtosis filtered: %d/%d'%(filtered_onb,onb))
 
     if write_fits == True:
         print('WS -- write fits as %s*'%(nfp))
@@ -355,15 +327,18 @@ def synthesis_wavsep( nfp, gamma, lvl_sep_big, lvl_sep, xs, ys, n_levels, rm_gam
     return icl, gal
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_bcgwavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, ys, n_levels, mscoim, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, Jy_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
+def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, ys, n_levels, mscstar, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, flux_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
     '''Simple separation based on wavelet scale, given by parameter 'lvl_sep'.
     '''
 
     # path, list & variables
     icl = np.zeros( (xs, ys) )
+    icl_dei = np.zeros( (xs, ys) )
     gal = np.zeros( (xs, ys) )
+    gal_dei = np.zeros( (xs, ys) )
     im_art = np.zeros( (xs, ys) )
     im_unclass = np.zeros( (xs, ys) )
+    
 
     icl_al = []
     gal_al = []
@@ -377,172 +352,166 @@ def synthesis_bcgwavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_ma
     xc = xs / 2.
     yc = ys / 2.
 
-    # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
+    ######################################## MEMORY v
+    opath = nfp + '*ol.it*.pkl'
+    itpath = nfp + '*itl.it*.pkl'
+    opathl = glob.glob(opath)
+    opathl.sort()
 
-    # Kurtosis + BCG + ICL
-    for j, o in enumerate(ol):
+    # Interscale tree lists
+    itpathl = glob.glob(itpath)
+    itpathl.sort()
 
-        x_min, y_min, x_max, y_max = o.bbox
-        itm = itl[j].interscale_maximum
-        xco = itm.x_max
-        yco = itm.y_max
+    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        gc.collect()
+        ol = d.store_objects.read_ol_from_pickle(op)
+        itl = d.store_objects.read_itl_from_pickle(itlp)
 
-        if kurt_filt == True:
-            k = kurtosis(o.image.flatten(), fisher=True)
-            if k < 0:
-                if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
-                    im_art[ x_min : x_max, y_min : y_max ] += o.image
-                else:
-                    im_art[ x_min : x_max, y_min : y_max ] += o.image * gamma
+        for o, it in zip(ol, itl):
+            ######################################## MEMORY ^
+
+            x_min, y_min, x_max, y_max = o.bbox
+            itm = it.interscale_maximum
+            xco = itm.x_max
+            yco = itm.y_max
+            
+            if kurt_filt == True:
+                k = kurtosis(o.image.flatten(), fisher=True)
+                if k < 0:
+                    if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
+                        im_art[ x_min : x_max, y_min : y_max ] += o.image
+                    else:
+                        im_art[ x_min : x_max, y_min : y_max ] += o.image * gamma
+                    continue
+
+            lvlo = o.level
+            xco = it.interscale_maximum.x_max
+            yco = it.interscale_maximum.y_max
+
+            # Remove background
+            if o.level >= lvl_sep_max:
+                #unclass_al.append([o, xco, yco])
                 continue
 
-        lvlo = o.level
-        xco = itl[j].interscale_maximum.x_max
-        yco = itl[j].interscale_maximum.y_max
+            # Only atoms within analysis radius
+            dR = np.sqrt( (xc - xco)**2 + (yc - yco)**2 )
+            if dR > R:
+                continue
 
-        # Remove background
-        if o.level >= lvl_sep_max:
-            #unclass_al.append([o, xco, yco])
-            continue
+            # ICL+BCG
+            if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
 
-        # Only atoms within analysis radius
-        dR = np.sqrt( (xc - xco)**2 + (yc - yco)**2 )
-        if dR > R:
-            continue
-
-        # ICL+BCG
-        if (mscoim[xco, yco] != 1) & (mscell[xco, yco] == 1):
-
-            # BCG
-            if mscbcg[xco, yco] == 1:
-
-                if o.level >= lvl_sep_big:
+                # BCG
+                if mscbcg[xco, yco] == 1:
                     icl[ x_min : x_max, y_min : y_max ] += o.image
+                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     icl_al.append([o, xco, yco])
+
+                # ICL
                 else:
-                    icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                    icl_al.append([o, xco, yco])
-
-            # ICL
-            else:
-
-                if o.level >= lvl_sep_big:
-
                     if o.level >= lvl_sep:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
+                        icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                         icl_al.append([o, xco, yco])
                         at_test.append([xco, yco])
                     else:
                         #gal[ x_min : x_max, y_min : y_max ] += o.image
                         noticl_al.append([o, xco, yco])
 
-                else:
+            else:
+                noticl_al.append([ o, xco, yco ])
+                
+        # Galaxies
+        for j, (o, xco, yco) in enumerate(noticl_al):
 
-                    if o.level >= lvl_sep:
-                        icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                        icl_al.append([o, xco, yco])
-                        #%
-                        at_test.append([xco, yco])
-                        #%
-                    else:
-                        #gal[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                        noticl_al.append([ o, xco, yco ])
+            x_min, y_min, x_max, y_max = o.bbox
+            if mscstar[xco, yco] != 1:
 
-        else:
-            noticl_al.append([ o, xco, yco ])
-
-    # Galaxies
-    for j, (o, xco, yco) in enumerate(noticl_al):
-
-        x_min, y_min, x_max, y_max = o.bbox
-        if mscoim[xco, yco] != 1:
-
-            # BCG
-            if mscbcg[xco, yco] == 1:
-                if o.level >= lvl_sep_big:
+                # BCG
+                if mscbcg[xco, yco] == 1:
                     gal[ x_min : x_max, y_min : y_max ] += o.image
+                    gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     gal_al.append([o, xco, yco])
-                else:
-                    gal[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                    gal_al.append([o, xco, yco])
-                continue
+                    continue
 
-            # Satellites
-            if o.level < lvl_sep:
+                # Satellites
+                if o.level < lvl_sep:
 
-                flag = False
-                for ygal, xgal in _gal:
-                    dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
-                    if dr <= rc_pix:
-                        flag = True
-                        if o.level >= lvl_sep_big:
+                    flag = False
+                    for ygal, xgal in cat_gal:
+                        dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
+                        if dr <= rc_pix:
+                            flag = True
                             gal[ x_min : x_max, y_min : y_max ] += o.image
+                            gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                             gal_al.append([o, xco, yco])
-                        else:
-                            gal[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                            gal_al.append([o, xco, yco])
-                        break
+                            break
 
-                # If not identified as galaxies --> test if BCG again
-                if flag == False:
-                    unclass_al.append([ o, xco, yco ])
+                    # If not identified as galaxies --> test if BCG again
+                    if flag == False:
+                        unclass_al.append([ o, xco, yco ])
 
-    # Test for unclassified atoms --> sometimes extended BCG halo is missed because
-    # of the nature of wavsep scheme.
-    for j, (o, xco, yco) in enumerate(unclass_al):
+        # Test for unclassified atoms --> sometimes extended BCG halo is missed because
+        # of the nature of wavsep scheme.
+        for j, (o, xco, yco) in enumerate(unclass_al):
 
-        x_min, y_min, x_max, y_max = o.bbox
+            x_min, y_min, x_max, y_max = o.bbox
+            
+            # Case in which it is possible that it is BCG halo?
+            if lvl_sep > lvl_sep_bcg:
 
-        # Case in which it is possible that it is BCG halo?
-        if lvl_sep > lvl_sep_bcg:
-
-            #BCG extended halo?
-            if (o.level >= lvl_sep_bcg) & (mscell[xco, yco] == 1) :
-                if o.level >= lvl_sep_big:
+                #BCG extended halo?
+                if (o.level >= lvl_sep_bcg) & (mscell[xco, yco] == 1) :
                     icl[ x_min : x_max, y_min : y_max ] += o.image
+                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     icl_al.append([o, xco, yco])
+
+                #If not --> unclassified
                 else:
-                    icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                    icl_al.append([o, xco, yco])
+                    im_unclass[ x_min : x_max, y_min : y_max ] += o.image
 
             #If not --> unclassified
             else:
-                if o.level >= lvl_sep_big:
-                    im_unclass[ x_min : x_max, y_min : y_max ] += o.image
-                else:
-                    im_unclass[ x_min : x_max, y_min : y_max ] += o.image * gamma
-
-        #If not --> unclassified
-        else:
-            if o.level >= lvl_sep_big:
                 im_unclass[ x_min : x_max, y_min : y_max ] += o.image
-            else:
-                im_unclass[ x_min : x_max, y_min : y_max ] += o.image * gamma
 
     # Remove potential foreground star artifacts
-    #gal[mscoim == 1.] = 0.
+    #gal[mscstar == 1.] = 0.
     #%
     at_test = np.array(at_test)
     #%
-
+        
     if write_fits == True:
         print('\nWS + SF -- ICL+BCG -- write fits as %s*'%(nfp))
+        
+        hdu = fits.PrimaryHDU()
+        
+        hdu_icl = fits.ImageHDU(icl, name = 'ICL+BCG')
+        #hduo.writeto( nfp + 'synth.restored.fits', overwrite = True )
+
+        hdu_gal = fits.ImageHDU(gal, name = 'SATELLITES')
+        #hduo.writeto( nfp + 'synth.residuals.fits', overwrite = True )
+        
+        hdu_tot = fits.ImageHDU(gal + icl, name = 'ICL+BCG+SATELLITES')
+        
+        hdu_icl_dei = fits.ImageHDU(icl_dei, name = 'ICL+BCG DET. ERR.')
+
+        hdu_gal_dei = fits.ImageHDU(gal_dei, name = 'SAT DET. ERR.')
+        hdu_tot_dei = fits.ImageHDU(icl_dei+gal_dei, name = 'ICL+BCG+SAT DET. ERR.')
+        
+        hdul = fits.HDUList([ hdu, hdu_icl, hdu_gal, hdu_tot, hdu_icl_dei, hdu_gal_dei, hdu_tot_dei ])
+
         # write to fits
-        hduo = fits.PrimaryHDU(icl)
-        hduo.writeto( nfp + 'synth.icl.bcgwavsepmask_%03d.fits'%lvl_sep, overwrite = True )
-
-        hduo = fits.PrimaryHDU(gal)
-        hduo.writeto( nfp + 'synth.gal.bcgwavsepmask_%03d.fits'%lvl_sep, overwrite = True )
-
+        hdul.writeto( nfp + 'synth.bcgwavsepmask_%03d.fits'%lvl_sep, overwrite = True )
+        
     # Plot vignets
     if plot_vignet == True:
-
+        
         interval = AsymmetricPercentileInterval(5, 99.5) # meilleur rendu que MinMax or ZScale pour images reconstruites
         fig, ax = plt.subplots(2, 2)
         poim = ax[0][0].imshow(gal, norm = ImageNormalize( gal, interval = interval, stretch = LogStretch()), cmap = 'binary', origin = 'lower')
         poim = ax[1][0].imshow(icl, norm = ImageNormalize( icl, interval = interval, stretch = LogStretch()), cmap = 'binary', origin = 'lower')
-        #%
+        '''#%
         rco = pyr.open(os.path.join(path_data, 'star_flags_polygon_pix_long.reg'))
         patch_list, artist_list = rco.get_mpl_patches_texts()
         for p in patch_list:
@@ -551,10 +520,9 @@ def synthesis_bcgwavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_ma
             ax[1][0].add_artist(a)
         for at in at_test:
             ax[1][0].plot(at[1], at[0], 'b+')
-        #%
+        #%'''
         poim = ax[0][1].imshow(im_unclass, norm = ImageNormalize( gal, interval = interval, stretch = LogStretch()), cmap = 'binary', origin = 'lower')
         poim = ax[1][1].imshow(im_art, norm = ImageNormalize( gal, interval = interval, stretch = LogStretch()), cmap = 'binary', origin = 'lower')
-
         #plt.show()
         plt.tight_layout()
         plt.savefig( nfp + 'results.bcgwavsepmask_%03d.png'%lvl_sep, format = 'png' )
@@ -564,29 +532,29 @@ def synthesis_bcgwavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_ma
     if measure_PR == True:
 
         # Measure Fractions and uncertainties
-        F_ICL_m, F_ICL_low, F_ICL_up, out_sed_icl =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
-        F_gal_m, F_gal_low, F_gal_up, out_sed_gal =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
+        F_ICL_m, F_ICL_low, F_ICL_up, out_sed_icl =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_gal_m, F_gal_low, F_gal_up, out_sed_gal =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
-
+        
         print('\nWS + SF -- ICL+BCG --  z = %d'%lvl_sep)
         print('N = %4d   F_ICL = %f Mjy/sr  err_low = %f Mjy/sr  err_up = %f Mjy/sr'%(len(icl_al), F_ICL_m, F_ICL_low, F_ICL_up))
         print('N = %4d   F_gal = %f Mjy/sr  err_low = %f Mjy/sr  err_up = %f Mjy/sr'%(len(gal_al), F_gal_m, F_gal_low, F_gal_up))
         print('f_ICL = %1.3f    f_ICL_low = %1.3f   f_ICL_up = %1.3f'%(f_ICL_m, f_ICL_low, f_ICL_up))
-
+        
         # Measure Power ratio
         results_PR = PR_with_selection_error(atom_in_list = icl_al, atom_out_list = unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, R = R, xs = xs, ys = ys)
         PR_1_m, PR_1_up, PR_1_low = results_PR[0]
         PR_2_m, PR_2_up, PR_2_low = results_PR[1]
         PR_3_m, PR_3_up, PR_3_low = results_PR[2]
         PR_4_m, PR_4_up, PR_4_low = results_PR[3]
-
+        
         print('PR_1_m = %1.2e    PR_1_low = %1.2e    PR_1_up = %1.2e'%(PR_1_m, PR_1_low, PR_1_up))
         print('PR_2_m = %1.2e    PR_2_low = %1.2e    PR_2_up = %1.2e'%(PR_2_m, PR_2_low, PR_2_up))
         print('PR_3_m = %1.2e    PR_3_low = %1.2e    PR_3_up = %1.2e'%(PR_3_m, PR_3_low, PR_3_up))
         print('PR_4_m = %1.2e    PR_4_low = %1.2e    PR_4_up = %1.2e'%(PR_4_m, PR_4_low, PR_4_up))
-
+        
         return icl, gal, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low, out_sed_icl, out_sed_gal
 
     else:
@@ -594,7 +562,7 @@ def synthesis_bcgwavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_ma
         return icl, gal, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, [ np.nan ], [ np.nan ]
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscoim, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, Jy_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
+def synthesis_bcgwavsizesep_with_masks( ol, itl, nfp, chan, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscstar, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, flux_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
     '''Wavelet Separation + Spatial filtering.
     ICL --> Atoms with z > lvl_sep, with maximum coordinates within ellipse mask 'mscell' and with size > size_sep_pix.
     Galaxies --> Satellites + BCG, so a bit complicated:
@@ -620,9 +588,6 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
 
     xc = xs / 2.
     yc = ys / 2.
-
-    # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
 
     # Kurtosis + ICL+BCG
     for j, o in enumerate(ol):
@@ -654,14 +619,14 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
             continue
 
         # ICL + BCG
-        if (mscoim[xco, yco] != 1) & (mscell[xco, yco] == 1):
+        if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
 
             # BCG
-            xbcg, ybcg = xc, yc # pix long, ds9 convention
+            xbcg, ybcg = [ 1050, 980 ] # pix long, ds9 convention
             if mscbcg[xco, yco] == 1:
 
                 dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
-                if (o.level <= lvl_sep_bcg) & (dr < rc_pix):
+                if (o.level <= 3) & (dr < rc_pix):
 
                     if o.level >= lvl_sep_big:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
@@ -670,7 +635,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
                         icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
                         icl_al.append([o, xco, yco])
 
-                elif o.level >= lvl_sep_bcg:
+                elif o.level >= 4:
                     if o.level >= lvl_sep_big:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
                         icl_al.append([o, xco, yco])
@@ -684,7 +649,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
 
                     if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
 
-                        '''#%%%%%
+                        #%%%%%
                         coo_spur_halo = [ [1615, 1665], [1685, 1480], [530, 260] ] # pix long, ds9 convention
 
                         flag = False
@@ -695,10 +660,10 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
                                 flag = True
 
                         if flag == False:
-                            #%'''
-                        icl[ x_min : x_max, y_min : y_max ] += o.image
-                        icl_al.append([o, xco, yco])
-                        at_test.append([xco, yco])
+                            #%
+                            icl[ x_min : x_max, y_min : y_max ] += o.image
+                            icl_al.append([o, xco, yco])
+                            at_test.append([xco, yco])
                     else:
                         #gal[ x_min : x_max, y_min : y_max ] += o.image
                         noticl_al.append([o, xco, yco])
@@ -707,7 +672,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
 
                     if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
 
-                        '''#%%%%%
+                        #%%%%%
                         coo_spur_halo = [ [1615, 1665], [1685, 1480], [530, 260] ] # pix long, ds9 convention
                         flag = False
                         for ygal, xgal in coo_spur_halo:
@@ -717,10 +682,12 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
                                 flag = True
 
                         if flag == False:
-                            #%'''
-                        icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                        icl_al.append([o, xco, yco])
-
+                            #%
+                            icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
+                            icl_al.append([o, xco, yco])
+                            #%
+                            at_test.append([xco, yco])
+                            #%
                     else:
                         noticl_al.append([ o, xco, yco ])
 
@@ -731,7 +698,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
     for j, (o, xco, yco) in enumerate(noticl_al):
 
         x_min, y_min, x_max, y_max = o.bbox
-        if mscoim[xco, yco] != 1:
+        if mscstar[xco, yco] != 1:
 
             # Satellites
             if o.level < lvl_sep:
@@ -786,7 +753,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
                 im_unclass[ x_min : x_max, y_min : y_max ] += o.image * gamma
 
     # Remove potential foreground star artifacts
-    #gal[mscoim == 1.] = 0.
+    #gal[mscstar == 1.] = 0.
 
     #%
     at_test = np.array(at_test)
@@ -831,8 +798,8 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
     if measure_PR == True:
 
         # Measure Fractions and uncertainties
-        F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
-        F_gal_m, F_gal_low, F_gal_up,_ =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
+        F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_gal_m, F_gal_low, F_gal_up,_ =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
@@ -861,7 +828,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, chan, gamma, lvl_sep_big, lvl_sep, 
         return icl, gal, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, [ np.nan ]
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, ys, n_levels, mscoim, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, Jy_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
+def synthesis_wavsep_with_masks( ol, itl, nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, ys, n_levels, mscstar, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, flux_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
     '''Wavelet Separation + Spatial filtering.
     ICL --> Atoms with z > lvl_sep and with maximum coordinates within ellipse mask 'mscell'
     Galaxies --> Satellites + BCG, so a bit complicated:
@@ -887,9 +854,6 @@ def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, 
 
     xc = xs / 2.
     yc = ys / 2.
-
-    # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
 
     # Kurtosis + ICL
     for j, o in enumerate(ol):
@@ -923,7 +887,7 @@ def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, 
             continue
 
         # ICL
-        if (mscoim[xco, yco] != 1) & (mscell[xco, yco] == 1):
+        if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
 
             if o.level >= lvl_sep_big:
 
@@ -954,7 +918,7 @@ def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, 
     for j, (o, xco, yco) in enumerate(noticl_al):
 
         x_min, y_min, x_max, y_max = o.bbox
-        if mscoim[xco, yco] != 1:
+        if mscstar[xco, yco] != 1:
 
             # BCG
             if mscbcg[xco, yco] == 1:
@@ -987,7 +951,7 @@ def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, 
                     unclass_al.append([ o, xco, yco ])
 
     # Remove potential foreground star artifacts
-    gal[mscoim == 1.] = 0.
+    gal[mscstar == 1.] = 0.
 
     # Test for unclassified atoms --> sometimes extended BCG halo is missed because
     # of the nature of wavsep scheme.
@@ -1060,8 +1024,8 @@ def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, 
     if measure_PR == True:
 
         # Measure Fractions and uncertainties
-        F_ICL_m, F_ICL_low, F_ICL_up, out_sed = selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
-        F_gal_m, F_gal_low, F_gal_up,_ = selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
+        F_ICL_m, F_ICL_low, F_ICL_up, out_sed = selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_gal_m, F_gal_low, F_gal_up,_ = selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
@@ -1094,7 +1058,7 @@ def synthesis_wavsep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, 
         return icl, gal, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, [ np.nan ]
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscoim, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, Jy_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
+def synthesis_wavsizesep_with_masks( ol, itl, nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscstar, mscell, mscbcg, mscsedl, R, cat_gal, rc_pix, N_err, per_err, flux_lim, rm_gamma_for_big = True, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
     '''Wavelet Separation + Spatial filtering.
     ICL --> Atoms with z > lvl_sep, with maximum coordinates within ellipse mask 'mscell' and with size > size_sep_pix.
     Galaxies --> Satellites + BCG, so a bit complicated:
@@ -1120,9 +1084,6 @@ def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_m
 
     xc = xs / 2.
     yc = ys / 2.
-
-    # Read atoms
-    ol, itl = read_image_atoms( nfp, verbose = False )
 
     # Kurtosis + ICL
     for j, o in enumerate(ol):
@@ -1154,7 +1115,7 @@ def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_m
             continue
 
         # ICL
-        if (mscoim[xco, yco] != 1) & (mscell[xco, yco] == 1):
+        if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
 
             if o.level >= lvl_sep_big:
 
@@ -1184,7 +1145,7 @@ def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_m
     for j, (o, xco, yco) in enumerate(noticl_al):
 
         x_min, y_min, x_max, y_max = o.bbox
-        if mscoim[xco, yco] != 1:
+        if mscstar[xco, yco] != 1:
 
             # BCG
             if mscbcg[xco, yco] == 1:
@@ -1217,7 +1178,7 @@ def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_m
                     unclass_al.append([ o, xco, yco ])
 
     # Remove potential foreground star artifacts
-    gal[mscoim == 1.] = 0.
+    gal[mscstar == 1.] = 0.
 
     # Test for unclassified atoms --> sometimes extended BCG halo is missed because
     # of the nature of wavsep scheme.
@@ -1294,8 +1255,8 @@ def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_m
     if measure_PR == True:
 
         # Measure Fractions and uncertainties
-        F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
-        F_gal_m, F_gal_low, F_gal_up,_ =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, Jy_lim = Jy_lim, mscsedl = mscsedl)
+        F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_gal_m, F_gal_low, F_gal_up,_ =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
@@ -1325,80 +1286,79 @@ def synthesis_wavsizesep_with_masks( nfp, gamma, lvl_sep_big, lvl_sep, lvl_sep_m
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @ray.remote
-def make_results_cluster( sch, oim, nfp, chan, filt, gamma, size_sep, size_sep_pix, lvl_sep_big, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, ys, n_levels, mscoim, mscell, mscbcg, mscsedl, R_kpc, R_pix, cat_gal, rc_pix, N_err, per_err, Jy_lim, rm_gamma_for_big, kurt_filt, plot_vignet, write_fits, measure_PR ):
+def make_results_cluster( sch, oim, nfp, filt, size_sep, size_sep_pix, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, ys, n_levels, mscstar, mscell, mscbcg, mscsedl, R_kpc, R_pix, cat_gal, rc_pix, N_err, per_err, flux_lim, kurt_filt, plot_vignet, write_fits, measure_PR ):
     '''
     Runs all classification schemes for a single cluster. Performed by a single ray worker.
     '''
     hkw = ['m', 'low', 'up'] # To correctly name SED column names
+    output_df = []
 
     # Full field ---------------------------------------------------------------
     if sch == 'fullfield':
-        output = synthesis_fullfield( oim, nfp, gamma, lvl_sep_big, xs, ys, n_levels, rm_gamma_for_big = rm_gamma_for_big, write_fits = write_fits )
-        filler_sed = np.empty( 3 * len(mscsedl)) # fill SED data
+        output = synthesis_fullfield( oim, nfp, xs, ys, write_fits )
+        '''filler_sed = np.empty( 3 * len(mscsedl)) # fill SED data
         filler_sed[:] = np.nan
         out_sed_df = pd.DataFrame([filler_sed], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(3 * len(mscsedl))])# create df with all SED flux for all regions with correctly numbered column names
         output_df = pd.DataFrame( [[ nf, chan, filt, sch, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan ]], \
                         columns = [ 'nf', 'chan', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep', 'F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-
-
+        '''
     # ICL -- WS -----------------------------------------------------------------
     if sch == 'WS':
-        output = synthesis_wavsep( nfp, gamma, lvl_sep_big, lvl_sep, xs, ys, n_levels, rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits )
-        filler_sed = np.empty( 3 * len(mscsedl)) # fill SED data
+        output = synthesis_wavsep( ol, itl, nfp, gamma, lvl_sep_big, lvl_sep, xs, ys, n_levels, rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits )
+        '''filler_sed = np.empty( 3 * len(mscsedl)) # fill SED data
         filler_sed[:] = np.nan
         out_sed_df = pd.DataFrame([filler_sed], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(3 * len(mscsedl))])# create df with all SED flux for all regions with correctly numbered column names
         output_df = pd.DataFrame( [[ nf, chan, filt, sch, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan ]], \
                         columns = [ 'nf', 'chan', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep', 'F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-
-
+        '''
     # ICL -- WS + SF -----------------------------------------------------------
     if sch == 'WS+SF':
-        output = synthesis_wavsep_with_masks( nfp = nfp, gamma = gamma, \
+        output = synthesis_wavsep_with_masks( ol, itl, nfp = nfp, gamma = gamma, \
                 lvl_sep_big = lvl_sep_big, lvl_sep = lvl_sep, lvl_sep_max = lvl_sep_max, lvl_sep_bcg = lvl_sep_bcg, xs = xs, ys = ys, \
-                n_levels = n_levels, mscoim = mscoim, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
-                N_err = N_err, per_err = per_err, Jy_lim = Jy_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
-        F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
+                n_levels = n_levels, mscstar = mscstar, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
+                N_err = N_err, per_err = per_err, flux_lim = flux_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
+        '''F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
         out_sed_df = pd.DataFrame( [output[-1]], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
         output_df = pd.DataFrame( [[ nf, chan, filt, sch, R_kpc, R_pix, lvl_sep, np.nan, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low ]], \
                         columns = [ 'nf', 'chan', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep', 'F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-        output_df = pd.concat( [output_df, out_sed_df], axis = 1)
+        output_df = pd.concat( [output_df, out_sed_df], axis = 1)'''
 
     # ICL+BCG -- WS + SF -------------------------------------------------------
     if sch == 'WS+BCGSF':
-        output = synthesis_bcgwavsep_with_masks( nfp = nfp, gamma = gamma, \
-                lvl_sep_big = lvl_sep_big, lvl_sep = lvl_sep, lvl_sep_max = lvl_sep_max, lvl_sep_bcg = lvl_sep_bcg, xs = xs, ys = ys, \
-                n_levels = n_levels, mscoim = mscoim, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
-                N_err = N_err, per_err = per_err, Jy_lim = Jy_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
+        output = synthesis_bcgwavsep_with_masks( nfp = nfp, lvl_sep = lvl_sep, lvl_sep_max = lvl_sep_max, lvl_sep_bcg = lvl_sep_bcg, xs = xs, ys = ys, \
+                n_levels = n_levels, mscstar = mscstar, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
+                N_err = N_err, per_err = per_err, flux_lim = flux_lim, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
+        print(np.shape(output))
 
-        F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
+        '''F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
         out_sed_df = pd.DataFrame( [output[-1]], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
         output_df = pd.DataFrame( [[ nf, chan, filt, sch, R_kpc, R_pix, lvl_sep, np.nan, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low ]], \
                         columns = [ 'nf', 'chan', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep', 'F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-        output_df = pd.concat( [output_df, out_sed_df], axis = 1)
-
+        output_df = pd.concat( [output_df, out_sed_df], axis = 1)'''
+        
     # ICL -- WS + SF + SS ------------------------------------------------------
     if sch == 'WS+SF+SS':
-        output = synthesis_wavsizesep_with_masks( nfp = nfp, gamma = gamma, \
+        output = synthesis_wavsizesep_with_masks( ol, itl, nfp = nfp, gamma = gamma, \
                 lvl_sep_big = lvl_sep_big, lvl_sep = lvl_sep, lvl_sep_max = lvl_sep_max, lvl_sep_bcg = lvl_sep_bcg, size_sep = size_sep, size_sep_pix =  size_sep_pix, xs = xs, ys = ys, \
-                n_levels = n_levels, mscoim = mscoim, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
-                N_err = N_err, per_err = per_err, Jy_lim = Jy_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
-        F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
+                n_levels = n_levels, mscstar = mscstar, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
+                N_err = N_err, per_err = per_err, flux_lim = flux_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
+        '''F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
         out_sed_df = pd.DataFrame( [output[-1]], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
         output_df = pd.DataFrame( [[ nf, chan, filt, sch, R_kpc, R_pix, lvl_sep, size_sep, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low ]], \
                         columns = [ 'nf', 'chan', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep','F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-        output_df = pd.concat( [output_df, out_sed_df], axis = 1)
+        output_df = pd.concat( [output_df, out_sed_df], axis = 1)'''
 
     # ICL+BCG -- WS + SF + SS --------------------------------------------------
     if sch == 'WS+BCGSF+SS':
-        output = synthesis_bcgwavsizesep_with_masks( nfp = nfp, chan = chan, gamma = gamma, size_sep = size_sep, size_sep_pix = size_sep_pix,\
+        output = synthesis_bcgwavsizesep_with_masks( ol, itl, nfp = nfp, chan = chan, gamma = gamma, size_sep = size_sep, size_sep_pix = size_sep_pix,\
                 lvl_sep_big = lvl_sep_big, lvl_sep = lvl_sep, lvl_sep_max = lvl_sep_max, lvl_sep_bcg = lvl_sep_bcg, xs = xs, ys = ys, \
-                n_levels = n_levels, mscoim = mscoim, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
-                N_err = N_err, per_err = per_err, Jy_lim = Jy_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
-        F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
+                n_levels = n_levels, mscstar = mscstar, mscell = mscell, mscbcg = mscbcg, mscsedl = mscsedl, R = R_pix, cat_gal = cat_gal, rc_pix = rc_pix,\
+                N_err = N_err, per_err = per_err, flux_lim = flux_lim, rm_gamma_for_big = rm_gamma_for_big, kurt_filt = kurt_filt, plot_vignet = plot_vignet, write_fits = write_fits, measure_PR = measure_PR )
+        '''F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low = output[2:-1]
         out_sed_df = pd.DataFrame( [output[-1]], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
         output_df = pd.DataFrame( [[ nf, chan, filt, sch, R_kpc, R_pix, lvl_sep, size_sep, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low ]], \
                         columns = [ 'nf', 'chan', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep', 'F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-        output_df = pd.concat( [output_df, out_sed_df], axis = 1)
+        output_df = pd.concat( [output_df, out_sed_df], axis = 1)'''
 
     return output_df
 
@@ -1406,143 +1366,101 @@ def make_results_cluster( sch, oim, nfp, chan, filt, gamma, size_sep, size_sep_p
 if __name__ == '__main__':
 
     # Paths, lists & variables
-    path_data = '/n03data/ellien/JWST/data/'
-    path_scripts = '/n03data/ellien/JWST/JWST_scripts'
-    path_wavelets = '/n03data/ellien/JWST/wavelets/out15/'
-    path_plots = '/n03data/ellien/JWST/plots'
-    path_analysis = '/home/ellien/JWST/analysis/'
+    path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
+    path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out5'
+    path_analysis = path_data
+    
+    '''# Paths, lists & variables
+    path_data = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
+    path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
+    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out5/'
+    path_plots = '/home/aellien/Euclid_ERO/plots'
+    path_analysis = '/home/aellien/Euclid_ERO/analysis/'
+    '''
+    nfl = [ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits' ]
 
-    nfl = [ {'nf':'jw02736001001_f090w_bkg_rot_crop_warp_nobkg2.fits', 'chan':'short', 'pix_scale':0.063, 'pixar_sr':9.31E-14, 'n_levels':11, 'lvl_sep_max':8, 'mu_lim':999 }, \
-            {'nf':'jw02736001001_f150w_bkg_rot_crop_warp_nobkg2.fits', 'chan':'short', 'pix_scale':0.063, 'pixar_sr':9.31E-14, 'n_levels':11, 'lvl_sep_max':999, 'mu_lim':999 }, \
-            {'nf':'jw02736001001_f200w_bkg_rot_crop_warp_nobkg2.fits', 'chan':'short', 'pix_scale':0.063, 'pixar_sr':9.31E-14, 'n_levels':11, 'lvl_sep_max':999, 'mu_lim':999 }, \
-            {'nf':'jw02736001001_f356w_bkg_rot_crop_input.fits', 'chan':'long', 'pix_scale':0.063, 'pixar_sr':9.31E-14, 'n_levels':11, 'lvl_sep_max':999, 'mu_lim':999 }, \
-            {'nf':'jw02736001001_f444w_bkg_rot_crop_input.fits', 'chan':'long', 'pix_scale':0.063, 'pixar_sr':9.31E-14, 'n_levels':11, 'lvl_sep_max':999, 'mu_lim':999 }, \
-            {'nf':'jw02736001001_f277w_bkg_rot_crop_input.fits', 'chan':'long', 'pix_scale':0.063, 'pixar_sr':9.31E-14, 'n_levels':11, 'lvl_sep_max':999, 'mu_lim':999 } ]
-
-            # out13
-            #{'nf':'jw02736001001_f090w_bkg_rot_crop_warp_det_nosky_input.fits', 'chan':'long', 'pix_scale':0.063, 'n_levels':10, 'lvl_sep_max':999 }, \
-            #{'nf':'jw02736001001_f150w_bkg_rot_crop_warp_det_nosky_input.fits', 'chan':'long', 'pix_scale':0.063, 'n_levels':10, 'lvl_sep_max':999 }, \
-            #{'nf':'jw02736001001_f200w_bkg_rot_crop_warp_det_nosky_input.fits', 'chan':'long', 'pix_scale':0.063, 'n_levels':10, 'lvl_sep_max':999 } ]
-
-            # out12
-            #{'nf':'jw02736001001_f090w_bkg_rot_crop_input.fits', 'chan':'short', 'pix_scale':0.031, 'n_levels':11, 'lvl_sep_max':8 }, \
-            #{'nf':'jw02736001001_f150w_bkg_rot_crop_input.fits', 'chan':'short', 'pix_scale':0.031, 'n_levels':11, 'lvl_sep_max':8 }, \
-            #{'nf':'jw02736001001_f200w_bkg_rot_crop_input.fits', 'chan':'short', 'pix_scale':0.031, 'n_levels':11, 'lvl_sep_max':8 }
-
-    lvl_sepl = [ 3, 4, 5, 6, 7 ] # wavelet scale separation
+    lvl_sepl = [ 4, 5, 6 ] # wavelet scale separation
     size_sepl = [ 60, 80, 100, 140, 200 ] # size separation [kpc]
-    R_kpcl = [ 400 ] # radius in which quantities are measured [kpc]
-    physcale = 5.3 # kpc/"
+    R_kpcl = [ 1000 ] # radius in which quantities are measured [kpc]
+    physcale = 3.68 # kpc/"
     gamma = 0.5
-    lvl_sep_big = 5
     lvl_sep_bcg = 6
-    rm_gamma_for_big = True
-
+    n_levels = 10
+    pix_scale = 0.3
+    lvl_sep_max = 10
+    mu_lim = 35
     rc = 10 # kpc, distance to center to be classified as gal
+    rc_pix = rc / physcale / pix_scale # pixels
+
+
     N_err = 100
     per_err = 0.1
 
-    sed_n_ann = 10 # number of annuli regions, SED
-    sed_n_str = 6 # number of tidal stream regions, SED
-
     kurt_filt = True
     plot_vignet = False
-    write_fits = False
-    measure_PR = True
-    write_dataframe = True
+    write_fits = True
+    measure_PR = False
+    write_dataframe = False
 
     results = []
     ray_refs = []
     ray_outputs = []
 
     # ray hyperparameters
-    n_cpus = 42
-    ray.init(num_cpus = n_cpus)
-
+    n_cpus = 10
+    #ray.init(num_cpus = n_cpus)
+    ray.init()
+    print('Ray OK.')
+    
+    
     # Read galaxy catalog
-    rgal = pyr.open(os.path.join(path_data, 'mahler_noirot_merged_member_gal_ra_dec_pix_long.reg'))
-    cat_gal = []
-    for gal in rgal:
-        cat_gal.append(gal.coord_list)
-    cat_gal = np.array(cat_gal)
+    cat_gal = np.loadtxt(os.path.join(path_analysis,'A2390_redMapper_Pmem_gt_0.8.txt'))[:, -2:]
+    print(cat_gal)
 
-    # Read star region files
-    rco = pyr.open(os.path.join(path_data, 'star_flags_polygon_pix_long.reg'))
-    rell = pyr.open(os.path.join(path_data, 'icl_flags_ellipse_pix_long.reg'))
-    rbcg = pyr.open(os.path.join(path_data, 'bcg_flags_ellipse_pix_long.reg'))
+    # Masks
+    mscell = fits.getdata(os.path.join(path_analysis,'mscell.fits'))
+    mscbcg = fits.getdata(os.path.join(path_analysis,'mscbcg.fits'))
+    mscstar = fits.getdata(os.path.join(path_analysis,'mscstar.fits'))
+    mscsed = []
+    id_mscell = ray.put(mscell)
+    id_mscstar = ray.put(mscstar)
+    id_mscbcg = ray.put(mscbcg)
+    id_mscsed= ray.put(mscsed)
+    
 
-    # Read SED extraction regions
-    rsedl = []
-    for i in range(1, sed_n_ann + 1):
-        rsedl.append(pyr.open(os.path.join(path_data, 'ellipse_annuli_pix_long_%d.reg'%i)))
-    for i in range(1, sed_n_str + 1):
-        rsedl.append(pyr.open(os.path.join(path_data, 'streams_flags_pix_long_%d.reg'%i)))
-    rsedl.append(rell)
+    for R_kpc in R_kpcl:
+        
+        R_pix = R_kpc / physcale / pix_scale # pixels
+        id_R_pix = ray.put(R_pix)
+        
+        # Iterate over dictionary list
+        for nf in nfl:
 
-    for chan in [ 'short', 'long' ]:
+            # Read image data from dic
+            filt = nf.split('-')[2]
+            print(nf)
 
-        # Masks
-        if chan == 'long':
-            hdu = fits.open(os.path.join(path_data, 'jw02736001001_f277w_bkg_rot_crop_input.fits')) # Arbitrary
-        else:
-            hdu = fits.open(os.path.join(path_data, 'jw02736001001_f200w_bkg_rot_crop_warp_nobkg2.fits')) # Arbitrary
+            # Photometry for limiting depth
+            ZP_AB = 30
+            flux_lim = 10**( (ZP_AB - mu_lim) / 2.5 )
 
-        mscell = rell.get_mask(hdu = hdu[0]) # not python convention
-        mscoim = rco.get_mask(hdu = hdu[0]) # not python convention
-        mscbcg = rbcg.get_mask(hdu = hdu[0]) # not python convention
-        mscsedl = [] # SED
-        for rsed in rsedl:
-            msc = rsed.get_mask(hdu = hdu[0])
-            mscsedl.append(msc)
-        id_mscsedl = ray.put(mscsedl)
-        id_mscell = ray.put(mscell)
-        id_mscoim = ray.put(mscoim)
-        id_mscbcg = ray.put(mscbcg)
+            # Read image file
+            nfp = os.path.join( path_wavelets, nf[:-4] )
+            oim_file = os.path.join( path_data, nf )
+            hdu = fits.open(oim_file)
+            oim = hdu[0].data
+            id_oim = ray.put(oim)
+            xs, ys = oim.shape
 
-        for R_kpc in R_kpcl:
+            # Full field ------------------------------------------------
+            lvl_sep = np.nan
+            size_sep = np.nan
+            size_sep_pix = np.nan
 
-            # Iterate over dictionary list
-            for nfd in nfl:
-
-                if nfd['chan'] == chan:
-
-                    # Read image data from dic
-                    nf = nfd['nf']
-                    filt = nf.split('_')[1]
-                    n_levels = nfd['n_levels']
-                    pix_scale = nfd['pix_scale']
-                    lvl_sep_max = nfd['lvl_sep_max']
-                    pixar_sr = nfd['pixar_sr']
-                    mu_lim = nfd['mu_lim']
-                    rc_pix = rc / physcale / pix_scale # pixels
-                    R_pix = R_kpc / physcale / pix_scale # pixels
-                    id_R_pix = ray.put(R_pix)
-                    print(nf)
-
-                    # Photometry for limiting depth
-                    ZP_AB = -6.10 - 2.5 * np.log10(pixar_sr)
-                    Jy_lim = 10**( (ZP_AB - mu_lim) / 2.5 )
-
-                    # Read image file
-                    nfp = os.path.join( path_wavelets, nf[:-4] )
-                    oim_file = os.path.join( path_data, nf )
-                    hdu = fits.open(oim_file)
-                    oim = hdu[0].data
-                    id_oim = ray.put(oim)
-                    xs, ys = oim.shape
-
-                    # Full field ------------------------------------------------
-                    lvl_sep = np.nan
-                    size_sep = np.nan
-                    size_sep_pix = np.nan
-
-                    ray_refs.append( make_results_cluster.remote(sch = 'fullfield', \
+            ray_refs.append( make_results_cluster.remote(sch = 'fullfield', \
                                                  oim = id_oim, \
                                                  nfp = nfp, \
-                                                 chan = chan, \
                                                  filt = filt, \
-                                                 gamma = gamma, \
-                                                 lvl_sep_big = lvl_sep_big, \
                                                  lvl_sep = lvl_sep, \
                                                  lvl_sep_max = lvl_sep_max, \
                                                  lvl_sep_bcg = lvl_sep_bcg, \
@@ -1551,199 +1469,202 @@ if __name__ == '__main__':
                                                  xs = xs, \
                                                  ys = ys, \
                                                  n_levels = n_levels, \
-                                                 mscoim = id_mscoim, \
+                                                 mscstar = id_mscstar, \
                                                  mscell = id_mscell, \
                                                  mscbcg = id_mscbcg, \
-                                                 mscsedl = id_mscsedl, \
+                                                 mscsedl = [], \
                                                  R_pix = id_R_pix, \
                                                  R_kpc = R_kpc,\
                                                  cat_gal = cat_gal, \
                                                  rc_pix = rc_pix,\
                                                  N_err = N_err, \
                                                  per_err = per_err, \
-                                                 Jy_lim = Jy_lim, \
-                                                 rm_gamma_for_big = rm_gamma_for_big, \
+                                                 flux_lim = flux_lim, \
                                                  kurt_filt = kurt_filt, \
                                                  plot_vignet = plot_vignet, \
                                                  write_fits = write_fits, \
                                                  measure_PR = measure_PR ))
+                        
+            '''
+            # ICL -- WS ------------------------------------------------
+            for lvl_sep in lvl_sepl:
+                ray_refs.append( make_results_cluster.remote(sch = 'WS', \
+                                                oim = id_oim, \
+                                                ol = [], \
+                                                itl = [], \
+                                                nfp = nfp, \
+                                                chan = chan, \
+                                                filt = filt, \
+                                                gamma = gamma, \
+                                                lvl_sep_big = lvl_sep_big, \
+                                                lvl_sep = lvl_sep, \
+                                                lvl_sep_max = lvl_sep_max, \
+                                                lvl_sep_bcg = lvl_sep_bcg, \
+                                                size_sep = size_sep, \
+                                                size_sep_pix = size_sep_pix, \
+                                                xs = xs, \
+                                                ys = ys, \
+                                                n_levels = n_levels, \
+                                                mscstar = id_mscstar, \
+                                                mscell = id_mscell, \
+                                                mscbcg = id_mscbcg, \
+                                                mscsedl = id_mscsedl, \
+                                                R_pix = id_R_pix, \
+                                                R_kpc = R_kpc,\
+                                                cat_gal = cat_gal, \
+                                                rc_pix = rc_pix,\
+                                                N_err = N_err, \
+                                                per_err = per_err, \
+                                                flux_lim = flux_lim, \
+                                                rm_gamma_for_big = rm_gamma_for_big, \
+                                                kurt_filt = kurt_filt, \
+                                                plot_vignet = plot_vignet, \
+                                                write_fits = write_fits, \
+                                                measure_PR = measure_PR ))
 
+            # ICL -- WS + SF -------------------------------------------
+            for lvl_sep in lvl_sepl:
+                ray_refs.append( make_results_cluster.remote(sch = 'WS+SF', \
+                                                oim = id_oim, \
+                                                ol = [], \
+                                                itl = [], \
+                                                nfp = nfp, \
+                                                chan = chan, \
+                                                filt = filt, \
+                                                gamma = gamma, \
+                                                lvl_sep_big = lvl_sep_big, \
+                                                lvl_sep = lvl_sep, \
+                                                lvl_sep_max = lvl_sep_max, \
+                                                lvl_sep_bcg = lvl_sep_bcg, \
+                                                size_sep = size_sep, \
+                                                size_sep_pix = size_sep_pix, \
+                                                xs = xs, \
+                                                ys = ys, \
+                                                n_levels = n_levels, \
+                                                mscstar = id_mscstar, \
+                                                mscell = id_mscell, \
+                                                mscbcg = id_mscbcg, \
+                                                mscsedl = id_mscsedl, \
+                                                R_kpc = R_kpc,\
+                                                R_pix = id_R_pix, \
+                                                cat_gal = cat_gal, \
+                                                rc_pix = rc_pix,\
+                                                N_err = N_err, \
+                                                per_err = per_err, \
+                                                flux_lim = flux_lim, \
+                                                rm_gamma_for_big = rm_gamma_for_big, \
+                                                kurt_filt = kurt_filt, \
+                                                plot_vignet = plot_vignet, \
+                                                write_fits = write_fits, \
+                                                measure_PR = measure_PR ))
+            '''
+            # ICL+BCG -- WS + SF ---------------------------------------
+            for lvl_sep in lvl_sepl:
+                ray_refs.append( make_results_cluster.remote(sch = 'WS+BCGSF', \
+                                                oim = oim, \
+                                                nfp = nfp, \
+                                                filt = filt, \
+                                                lvl_sep = lvl_sep, \
+                                                lvl_sep_max = lvl_sep_max, \
+                                                lvl_sep_bcg = lvl_sep_bcg, \
+                                                size_sep = size_sep, \
+                                                size_sep_pix = size_sep_pix, \
+                                                xs = xs, \
+                                                ys = ys, \
+                                                n_levels = n_levels, \
+                                                mscstar = id_mscstar, \
+                                                mscell = id_mscell, \
+                                                mscbcg = id_mscbcg, \
+                                                mscsedl = [], \
+                                                R_kpc = R_kpc,\
+                                                R_pix = id_R_pix, \
+                                                cat_gal = cat_gal, \
+                                                rc_pix = rc_pix,\
+                                                N_err = N_err, \
+                                                per_err = per_err, \
+                                                flux_lim = flux_lim, \
+                                                kurt_filt = kurt_filt, \
+                                                plot_vignet = plot_vignet, \
+                                                write_fits = write_fits, \
+                                                measure_PR = measure_PR ))
+            '''
+            # ICL -- WS + SF + SS --------------------------------------
+            for lvl_sep in lvl_sepl:
+                for size_sep in size_sepl:
+                    size_sep_pix = size_sep / physcale / pix_scale # pixels
+                    ray_refs.append( make_results_cluster.remote(sch = 'WS+SF+SS', \
+                                                    oim = oim, \
+                                                    ol = [], \
+                                                    itl = [], \
+                                                    nfp = nfp, \
+                                                    chan = chan, \
+                                                    filt = filt, \
+                                                    gamma = gamma, \
+                                                    lvl_sep_big = lvl_sep_big, \
+                                                    lvl_sep = lvl_sep, \
+                                                    lvl_sep_max = lvl_sep_max, \
+                                                    lvl_sep_bcg = lvl_sep_bcg, \
+                                                    size_sep = size_sep, \
+                                                    size_sep_pix = size_sep_pix, \
+                                                    xs = xs, \
+                                                    ys = ys, \
+                                                    n_levels = n_levels, \
+                                                    mscstar = id_mscstar, \
+                                                    mscell = id_mscell, \
+                                                    mscbcg = id_mscbcg, \
+                                                    mscsedl = id_mscsedl, \
+                                                    R_kpc = R_kpc,\
+                                                    R_pix = id_R_pix, \
+                                                    cat_gal = cat_gal, \
+                                                    rc_pix = rc_pix,\
+                                                    N_err = N_err, \
+                                                    per_err = per_err, \
+                                                    flux_lim = flux_lim, \
+                                                    rm_gamma_for_big = rm_gamma_for_big, \
+                                                    kurt_filt = kurt_filt, \
+                                                    plot_vignet = plot_vignet, \
+                                                    write_fits = write_fits, \
+                                                    measure_PR = measure_PR ))
 
-                    # ICL -- WS ------------------------------------------------
-                    for lvl_sep in lvl_sepl:
-                        ray_refs.append( make_results_cluster.remote(sch = 'WS', \
-                                                        oim = id_oim, \
-                                                        nfp = nfp, \
-                                                        chan = chan, \
-                                                        filt = filt, \
-                                                        gamma = gamma, \
-                                                        lvl_sep_big = lvl_sep_big, \
-                                                        lvl_sep = lvl_sep, \
-                                                        lvl_sep_max = lvl_sep_max, \
-                                                        lvl_sep_bcg = lvl_sep_bcg, \
-                                                        size_sep = size_sep, \
-                                                        size_sep_pix = size_sep_pix, \
-                                                        xs = xs, \
-                                                        ys = ys, \
-                                                        n_levels = n_levels, \
-                                                        mscoim = id_mscoim, \
-                                                        mscell = id_mscell, \
-                                                        mscbcg = id_mscbcg, \
-                                                        mscsedl = id_mscsedl, \
-                                                        R_pix = id_R_pix, \
-                                                        R_kpc = R_kpc,\
-                                                        cat_gal = cat_gal, \
-                                                        rc_pix = rc_pix,\
-                                                        N_err = N_err, \
-                                                        per_err = per_err, \
-                                                        Jy_lim = Jy_lim, \
-                                                        rm_gamma_for_big = rm_gamma_for_big, \
-                                                        kurt_filt = kurt_filt, \
-                                                        plot_vignet = plot_vignet, \
-                                                        write_fits = write_fits, \
-                                                        measure_PR = measure_PR ))
+            # ICL+BCG -- WS + SF + SS ----------------------------------
+            for lvl_sep in lvl_sepl:
 
-                    # ICL -- WS + SF -------------------------------------------
-                    for lvl_sep in lvl_sepl:
-                        ray_refs.append( make_results_cluster.remote(sch = 'WS+SF', \
-                                                        oim = id_oim, \
-                                                        nfp = nfp, \
-                                                        chan = chan, \
-                                                        filt = filt, \
-                                                        gamma = gamma, \
-                                                        lvl_sep_big = lvl_sep_big, \
-                                                        lvl_sep = lvl_sep, \
-                                                        lvl_sep_max = lvl_sep_max, \
-                                                        lvl_sep_bcg = lvl_sep_bcg, \
-                                                        size_sep = size_sep, \
-                                                        size_sep_pix = size_sep_pix, \
-                                                        xs = xs, \
-                                                        ys = ys, \
-                                                        n_levels = n_levels, \
-                                                        mscoim = id_mscoim, \
-                                                        mscell = id_mscell, \
-                                                        mscbcg = id_mscbcg, \
-                                                        mscsedl = id_mscsedl, \
-                                                        R_kpc = R_kpc,\
-                                                        R_pix = id_R_pix, \
-                                                        cat_gal = cat_gal, \
-                                                        rc_pix = rc_pix,\
-                                                        N_err = N_err, \
-                                                        per_err = per_err, \
-                                                        Jy_lim = Jy_lim, \
-                                                        rm_gamma_for_big = rm_gamma_for_big, \
-                                                        kurt_filt = kurt_filt, \
-                                                        plot_vignet = plot_vignet, \
-                                                        write_fits = write_fits, \
-                                                        measure_PR = measure_PR ))
+                for size_sep in size_sepl:
 
-                    # ICL+BCG -- WS + SF ---------------------------------------
-                    for lvl_sep in lvl_sepl:
-                        ray_refs.append( make_results_cluster.remote(sch = 'WS+BCGSF', \
-                                                        oim = oim, \
-                                                        nfp = nfp, \
-                                                        chan = chan, \
-                                                        filt = filt, \
-                                                        gamma = gamma, \
-                                                        lvl_sep_big = lvl_sep_big, \
-                                                        lvl_sep = lvl_sep, \
-                                                        lvl_sep_max = lvl_sep_max, \
-                                                        lvl_sep_bcg = lvl_sep_bcg, \
-                                                        size_sep = size_sep, \
-                                                        size_sep_pix = size_sep_pix, \
-                                                        xs = xs, \
-                                                        ys = ys, \
-                                                        n_levels = n_levels, \
-                                                        mscoim = id_mscoim, \
-                                                        mscell = id_mscell, \
-                                                        mscbcg = id_mscbcg, \
-                                                        mscsedl = id_mscsedl, \
-                                                        R_kpc = R_kpc,\
-                                                        R_pix = id_R_pix, \
-                                                        cat_gal = cat_gal, \
-                                                        rc_pix = rc_pix,\
-                                                        N_err = N_err, \
-                                                        per_err = per_err, \
-                                                        Jy_lim = Jy_lim, \
-                                                        rm_gamma_for_big = rm_gamma_for_big, \
-                                                        kurt_filt = kurt_filt, \
-                                                        plot_vignet = plot_vignet, \
-                                                        write_fits = write_fits, \
-                                                        measure_PR = measure_PR ))
-
-                    # ICL -- WS + SF + SS --------------------------------------
-                    for lvl_sep in lvl_sepl:
-                        for size_sep in size_sepl:
-                            size_sep_pix = size_sep / physcale / pix_scale # pixels
-                            ray_refs.append( make_results_cluster.remote(sch = 'WS+SF+SS', \
-                                                            oim = oim, \
-                                                            nfp = nfp, \
-                                                            chan = chan, \
-                                                            filt = filt, \
-                                                            gamma = gamma, \
-                                                            lvl_sep_big = lvl_sep_big, \
-                                                            lvl_sep = lvl_sep, \
-                                                            lvl_sep_max = lvl_sep_max, \
-                                                            lvl_sep_bcg = lvl_sep_bcg, \
-                                                            size_sep = size_sep, \
-                                                            size_sep_pix = size_sep_pix, \
-                                                            xs = xs, \
-                                                            ys = ys, \
-                                                            n_levels = n_levels, \
-                                                            mscoim = id_mscoim, \
-                                                            mscell = id_mscell, \
-                                                            mscbcg = id_mscbcg, \
-                                                            mscsedl = id_mscsedl, \
-                                                            R_kpc = R_kpc,\
-                                                            R_pix = id_R_pix, \
-                                                            cat_gal = cat_gal, \
-                                                            rc_pix = rc_pix,\
-                                                            N_err = N_err, \
-                                                            per_err = per_err, \
-                                                            Jy_lim = Jy_lim, \
-                                                            rm_gamma_for_big = rm_gamma_for_big, \
-                                                            kurt_filt = kurt_filt, \
-                                                            plot_vignet = plot_vignet, \
-                                                            write_fits = write_fits, \
-                                                            measure_PR = measure_PR ))
-
-                    # ICL+BCG -- WS + SF + SS ----------------------------------
-                    for lvl_sep in lvl_sepl:
-
-                        for size_sep in size_sepl:
-
-                            size_sep_pix = size_sep / physcale / pix_scale # pixels
-                            ray_refs.append( make_results_cluster.remote(sch = 'WS+BCGSF+SS', \
-                                                            oim = oim, \
-                                                            nfp = nfp, \
-                                                            chan = chan, \
-                                                            filt = filt, \
-                                                            gamma = gamma, \
-                                                            lvl_sep_big = lvl_sep_big, \
-                                                            lvl_sep = lvl_sep, \
-                                                            lvl_sep_max = lvl_sep_max, \
-                                                            lvl_sep_bcg = lvl_sep_bcg, \
-                                                            size_sep = size_sep, \
-                                                            size_sep_pix = size_sep_pix, \
-                                                            xs = xs, \
-                                                            ys = ys, \
-                                                            n_levels = n_levels, \
-                                                            mscoim = id_mscoim, \
-                                                            mscell = id_mscell, \
-                                                            mscbcg = id_mscbcg, \
-                                                            mscsedl = id_mscsedl, \
-                                                            R_kpc = R_kpc, \
-                                                            R_pix = id_R_pix, \
-                                                            cat_gal = cat_gal, \
-                                                            rc_pix = rc_pix,\
-                                                            N_err = N_err, \
-                                                            per_err = per_err, \
-                                                            Jy_lim = Jy_lim, \
-                                                            rm_gamma_for_big = rm_gamma_for_big, \
-                                                            kurt_filt = kurt_filt, \
-                                                            plot_vignet = plot_vignet, \
-                                                            write_fits = write_fits, \
-                                                            measure_PR = measure_PR ))
+                    size_sep_pix = size_sep / physcale / pix_scale # pixels
+                    ray_refs.append( make_results_cluster.remote(sch = 'WS+BCGSF+SS', \
+                                                    oim = oim, \
+                                                    ol = [], \
+                                                    itl = [], \
+                                                    nfp = nfp, \
+                                                    chan = chan, \
+                                                    filt = filt, \
+                                                    gamma = gamma, \
+                                                    lvl_sep_big = lvl_sep_big, \
+                                                    lvl_sep = lvl_sep, \
+                                                    lvl_sep_max = lvl_sep_max, \
+                                                    lvl_sep_bcg = lvl_sep_bcg, \
+                                                    size_sep = size_sep, \
+                                                    size_sep_pix = size_sep_pix, \
+                                                    xs = xs, \
+                                                    ys = ys, \
+                                                    n_levels = n_levels, \
+                                                    mscstar = id_mscstar, \
+                                                    mscell = id_mscell, \
+                                                    mscbcg = id_mscbcg, \
+                                                    mscsedl = id_mscsedl, \
+                                                    R_kpc = R_kpc, \
+                                                    R_pix = id_R_pix, \
+                                                    cat_gal = cat_gal, \
+                                                    rc_pix = rc_pix,\
+                                                    N_err = N_err, \
+                                                    per_err = per_err, \
+                                                    flux_lim = flux_lim, \
+                                                    rm_gamma_for_big = rm_gamma_for_big, \
+                                                    kurt_filt = kurt_filt, \
+                                                    plot_vignet = plot_vignet, \
+                                                    write_fits = write_fits, \
+                                                    measure_PR = measure_PR ))'''
 
     # Collect ray outputs
     for ref in ray_refs:
@@ -1751,11 +1672,10 @@ if __name__ == '__main__':
 
     ray.shutdown()
 
-    results_df = ray_outputs[0]
-    for output_df in ray_outputs[1:]:
-        results_df = pd.concat( [ results_df, output_df], ignore_index = True )
-
     if write_dataframe == True:
+        results_df = ray_outputs[0]
+        for output_df in ray_outputs[1:]:
+            results_df = pd.concat( [ results_df, output_df], ignore_index = True )
         ofp = os.path.join(path_analysis, 'results_out5b.xlsx')
         print('Write results to %s'%ofp)
         results_df.to_excel(ofp)
