@@ -379,8 +379,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
             if kurt_filt == True:
                 k = kurtosis(o.image.flatten(), fisher=True)
                 if k < 0:
-                    if o.level >= lvl_sep_big:
-                        im_art[ x_min : x_max, y_min : y_max ] += o.image
+                    im_art[ x_min : x_max, y_min : y_max ] += o.image
                     continue
 
             lvlo = o.level
