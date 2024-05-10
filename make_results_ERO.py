@@ -68,7 +68,7 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
     res = oim - rec
     if write_fits == True:
 
-        print('\nFULLFIELD -- write fits as %s*fits'%(nfp))
+        print('\nFULLFIELD -- write results to %s'%(nfp + 'synth.full_field.fits'))
         
         hdu = fits.PrimaryHDU()
         
@@ -379,10 +379,8 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
             if kurt_filt == True:
                 k = kurtosis(o.image.flatten(), fisher=True)
                 if k < 0:
-                    if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
+                    if o.level >= lvl_sep_big:
                         im_art[ x_min : x_max, y_min : y_max ] += o.image
-                    else:
-                        im_art[ x_min : x_max, y_min : y_max ] += o.image * gamma
                     continue
 
             lvlo = o.level
@@ -405,14 +403,14 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                 # BCG
                 if mscbcg[xco, yco] == 1:
                     icl[ x_min : x_max, y_min : y_max ] += o.image
-                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    #icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     icl_al.append([o, xco, yco])
 
                 # ICL
                 else:
                     if o.level >= lvl_sep:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
-                        icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                        #icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                         icl_al.append([o, xco, yco])
                         at_test.append([xco, yco])
                     else:
@@ -431,7 +429,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                 # BCG
                 if mscbcg[xco, yco] == 1:
                     gal[ x_min : x_max, y_min : y_max ] += o.image
-                    gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    #gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     gal_al.append([o, xco, yco])
                     continue
 
@@ -444,7 +442,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                         if dr <= rc_pix:
                             flag = True
                             gal[ x_min : x_max, y_min : y_max ] += o.image
-                            gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                            #gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                             gal_al.append([o, xco, yco])
                             break
 
@@ -464,7 +462,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                 #BCG extended halo?
                 if (o.level >= lvl_sep_bcg) & (mscell[xco, yco] == 1) :
                     icl[ x_min : x_max, y_min : y_max ] += o.image
-                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    #icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     icl_al.append([o, xco, yco])
 
                 #If not --> unclassified
@@ -1367,7 +1365,7 @@ if __name__ == '__main__':
 
     # Paths, lists & variables
     path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
-    path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out5'
+    path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out4'
     path_analysis = path_data
     
     '''# Paths, lists & variables

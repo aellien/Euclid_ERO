@@ -10,6 +10,6 @@
 source /home/ellien/.bashrc
 conda activate dawis
 ray start --head --port=6379 &
-sleep 30
+sleep 10
 python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO_ray_test.py
 exit 0
