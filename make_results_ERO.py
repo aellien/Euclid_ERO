@@ -63,7 +63,7 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
             wei[ x_min : x_max, y_min : y_max ] += o.image
             
             # detection error image
-            dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+            #dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
             
     res = oim - rec
     if write_fits == True:
