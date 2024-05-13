@@ -83,7 +83,7 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
     return rec, res, wei, dei
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma, xs, ys, flux_lim, mscsedl):
+def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, mscsedl):
     '''Computation of classification error on flux.
     '''
     # Output array
@@ -114,12 +114,9 @@ def selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma,
 
         for (o, xco, yco) in draw:
             x_min, y_min, x_max, y_max = o.bbox
-            if o.level >= lvl_sep_big:
-                im_s[ x_min : x_max, y_min : y_max ] += o.image
-                #flux += np.sum(o.image)
-            else:
-                im_s[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                #flux += np.sum(o.image) * gamma
+            im_s[ x_min : x_max, y_min : y_max ] += o.image
+            #flux += np.sum(o.image)
+
         flux = np.sum(im_s[im_s >= flux_lim])
         flux_sample.append(flux)
 
@@ -148,7 +145,7 @@ def selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma,
     return mean_flux, low_err, up_err, out_sed
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def PR_with_selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big, gamma, R, xs, ys):
+def PR_with_selection_error(atom_in_list, atom_out_list, M, percent, R, xs, ys):
     '''Computation of classification error on PR.
     '''
     size_sample = np.random.uniform(low = int( len(atom_in_list) * (1. - percent)), \
@@ -186,10 +183,8 @@ def PR_with_selection_error(atom_in_list, atom_out_list, M, percent, lvl_sep_big
             draw = draw1 + draw2
             for (o, xco, yco) in draw:
                 x_min, y_min, x_max, y_max = o.bbox
-                if o.level >= lvl_sep_big:
-                    im[ x_min : x_max, y_min : y_max ] += o.image
-                else:
-                    im[ x_min : x_max, y_min : y_max ] += o.image * gamma
+                im[ x_min : x_max, y_min : y_max ] += o.image
+
             orderl = []
 
             for order in range(1, 5):
@@ -522,8 +517,8 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
     if measure_PR == True:
 
         # Measure Fractions and uncertainties
-        F_ICL_m, F_ICL_low, F_ICL_up, out_sed_icl =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
-        F_gal_m, F_gal_low, F_gal_up, out_sed_gal =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_ICL_m, F_ICL_low, F_ICL_up, out_sed_icl =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_gal_m, F_gal_low, F_gal_up, out_sed_gal =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
@@ -534,7 +529,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
         print('f_ICL = %1.3f    f_ICL_low = %1.3f   f_ICL_up = %1.3f'%(f_ICL_m, f_ICL_low, f_ICL_up))
         
         # Measure Power ratio
-        results_PR = PR_with_selection_error(atom_in_list = icl_al, atom_out_list = unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, R = R, xs = xs, ys = ys)
+        results_PR = PR_with_selection_error(atom_in_list = icl_al, atom_out_list = unclass_al, M = N_err, percent = per_err, R = R, xs = xs, ys = ys)
         PR_1_m, PR_1_up, PR_1_low = results_PR[0]
         PR_2_m, PR_2_up, PR_2_low = results_PR[1]
         PR_3_m, PR_3_up, PR_3_low = results_PR[2]
@@ -707,6 +702,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
             #BCG extended halo?
             if (o.level >= lvl_sep_bcg) & (mscell[xco, yco] == 1) :
                 icl[ x_min : x_max, y_min : y_max ] += o.image
+                icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                 icl_al.append([o, xco, yco])
 
             #If not --> unclassified
@@ -767,8 +763,8 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
     if measure_PR == True:
 
         # Measure Fractions and uncertainties
-        F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
-        F_gal_m, F_gal_low, F_gal_up,_ =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
+        F_gal_m, F_gal_low, F_gal_up,_ =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
@@ -779,7 +775,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
         print('f_ICL = %1.3f    f_ICL_low = %1.3f   f_ICL_up = %1.3f'%(f_ICL_m, f_ICL_low, f_ICL_up))
 
         # Measure Power ratio
-        results_PR = PR_with_selection_error(atom_in_list = icl_al, atom_out_list = unclass_al, M = N_err, percent = per_err, lvl_sep_big = lvl_sep_big, gamma = gamma, R = R, xs = xs, ys = ys)
+        results_PR = PR_with_selection_error(atom_in_list = icl_al, atom_out_list = unclass_al, M = N_err, percent = per_err, R = R, xs = xs, ys = ys)
         PR_1_m, PR_1_up, PR_1_low = results_PR[0]
         PR_2_m, PR_2_up, PR_2_low = results_PR[1]
         PR_3_m, PR_3_up, PR_3_low = results_PR[2]
@@ -1354,7 +1350,7 @@ if __name__ == '__main__':
     lvl_sep_bcg = 6
     n_levels = 10
     pix_scale = 0.3
-    lvl_sep_max = 10
+    lvl_sep_max = 9
     mu_lim = 35
     rc = 10 # kpc, distance to center to be classified as gal
     rc_pix = rc / physcale / pix_scale # pixels
