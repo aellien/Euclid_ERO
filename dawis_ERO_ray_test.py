@@ -6,7 +6,7 @@ import glob
 import ray
 
 indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
-infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits'))]
+infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits'))]
 outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out6/'
 
 tau = 0.1   # Relative Threshold

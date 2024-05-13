@@ -37,7 +37,7 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
     wei = np.zeros((xs, ys))
     dei = np.zeros((xs, ys))
     
-    ######################################## MEMORY
+    ######################################## MEMORY v
     opath = nfp + '*ol.it*.pkl'
     itpath = nfp + '*itl.it*.pkl'
     opathl = glob.glob(opath)
@@ -52,7 +52,7 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
         gc.collect()
         ol = d.store_objects.read_ol_from_pickle(op)
         itl = d.store_objects.read_itl_from_pickle(itlp)
-        ############################################################## MEMORY
+        ############################################################## MEMORY ^
         for o, it in zip(ol, itl):
 
             x_min, y_min, x_max, y_max = o.bbox
@@ -63,7 +63,7 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
             wei[ x_min : x_max, y_min : y_max ] += o.image
             
             # detection error image
-            #dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+            dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
             
     res = oim - rec
     if write_fits == True:
@@ -71,19 +71,11 @@ def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
         print('\nFULLFIELD -- write results to %s'%(nfp + 'synth.full_field.fits'))
         
         hdu = fits.PrimaryHDU()
-        
         hdu_oim = fits.ImageHDU(oim, name = 'ORIGINAL')
         hdu_rec = fits.ImageHDU(rec, name = 'RESTORED')
-        #hduo.writeto( nfp + 'synth.restored.fits', overwrite = True )
-
         hdu_res = fits.ImageHDU(res, name = 'RESIDUALS')
-        #hduo.writeto( nfp + 'synth.residuals.fits', overwrite = True )
-
         hdu_wei = fits.ImageHDU(wei, name = 'WEIGHTS')
-        #hduo.writeto( nfp + 'synth.weight.fits', overwrite = True )
-        
         hdu_dei = fits.ImageHDU(dei, name = 'DETECT. ERROR')
-        #hduo.writeto( nfp + 'synth.deterr.fits', overwrite = True )
         
         hdul = fits.HDUList([hdu, hdu_oim, hdu_rec, hdu_res, hdu_wei, hdu_dei])
         hdul.writeto(nfp + 'synth.full_field.fits', overwrite = True)
@@ -244,7 +236,9 @@ def synthesis_wavsep( nfp, lvl_sep, xs, ys, n_levels, kurt_filt = False, plot_vi
     icl = np.zeros( (xs, ys) )
     gal = np.zeros( (xs, ys) )
     im_art = np.zeros((xs, ys))
-    
+    icl_dei = np.zeros((xs, ys))
+    gal_dei = np.zeros((xs, ys))
+
     ######################################## MEMORY v
     opath = nfp + '*ol.it*.hdf5'
     itpath = nfp + '*itl.it*.hdf5'
@@ -270,24 +264,30 @@ def synthesis_wavsep( nfp, lvl_sep, xs, ys, n_levels, kurt_filt = False, plot_vi
                 k = kurtosis(o.image.flatten(), fisher=True)
                 if k < 0:
                     filtered_onb += 1
-                    if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
-                        im_art[ x_min : x_max, y_min : y_max ] += o.image
+                    im_art[ x_min : x_max, y_min : y_max ] += o.image
                     continue
 
             if o.level >= lvl_sep:
                 icl[ x_min : x_max, y_min : y_max ] += o.image
+                icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
             else:
                 gal[ x_min : x_max, y_min : y_max ] += o.image
+                gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
 
 
     if write_fits == True:
         print('WS -- write fits as %s*'%(nfp))
+        
+        hdu = fits.PrimaryHDU()
+        hdu_icl = fits.ImageHDU(icl, name = 'LARGE SCALE')
+        hdu_gal = fits.ImageHDU(gal, name = 'SMALL SCALE')
+        hdu_icl_dei = fits.ImageHDU(icl_dei, name = 'LARGE SCALE DET. ERR.')
+        hdu_gal_dei = fits.ImageHDU(gal_dei, name = 'SMALL SCALE DET. ERR.')
 
-        hduo = fits.PrimaryHDU(icl)
-        hduo.writeto( nfp + 'synth.icl.wavsep_%03d.fits'%lvl_sep, overwrite = True )
+        hdul = fits.HDUList([ hdu, hdu_icl, hdu_gal, hdu_icl_dei, hdu_gal_dei ])
 
-        hduo = fits.PrimaryHDU(gal)
-        hduo.writeto( nfp + 'synth.gal.wavsep_%03d.fits'%lvl_sep, overwrite = True )
+        # write to fits
+        hdul.writeto( nfp + 'synth.wavsep_%03d.fits'%lvl_sep, overwrite = True )
 
     if plot_vignet == True:
         interval = AsymmetricPercentileInterval(5, 99.5) # meilleur rendu que MinMax or ZScale pour images reconstruites
@@ -388,7 +388,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
 
             # Remove background
             if o.level >= lvl_sep_max:
-                #unclass_al.append([o, xco, yco])
+                unclass_al.append([o, xco, yco])
                 continue
 
             # Only atoms within analysis radius
@@ -402,18 +402,18 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                 # BCG
                 if mscbcg[xco, yco] == 1:
                     icl[ x_min : x_max, y_min : y_max ] += o.image
-                    #icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     icl_al.append([o, xco, yco])
 
                 # ICL
                 else:
                     if o.level >= lvl_sep:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
-                        #icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                        icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                         icl_al.append([o, xco, yco])
                         at_test.append([xco, yco])
                     else:
-                        #gal[ x_min : x_max, y_min : y_max ] += o.image
+                        gal[ x_min : x_max, y_min : y_max ] += o.image
                         noticl_al.append([o, xco, yco])
 
             else:
@@ -428,7 +428,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                 # BCG
                 if mscbcg[xco, yco] == 1:
                     gal[ x_min : x_max, y_min : y_max ] += o.image
-                    #gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     gal_al.append([o, xco, yco])
                     continue
 
@@ -441,7 +441,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                         if dr <= rc_pix:
                             flag = True
                             gal[ x_min : x_max, y_min : y_max ] += o.image
-                            #gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                            gal_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                             gal_al.append([o, xco, yco])
                             break
 
@@ -461,7 +461,7 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
                 #BCG extended halo?
                 if (o.level >= lvl_sep_bcg) & (mscell[xco, yco] == 1) :
                     icl[ x_min : x_max, y_min : y_max ] += o.image
-                    #icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
                     icl_al.append([o, xco, yco])
 
                 #If not --> unclassified
@@ -482,17 +482,10 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
         print('\nWS + SF -- ICL+BCG -- write fits as %s*'%(nfp))
         
         hdu = fits.PrimaryHDU()
-        
         hdu_icl = fits.ImageHDU(icl, name = 'ICL+BCG')
-        #hduo.writeto( nfp + 'synth.restored.fits', overwrite = True )
-
         hdu_gal = fits.ImageHDU(gal, name = 'SATELLITES')
-        #hduo.writeto( nfp + 'synth.residuals.fits', overwrite = True )
-        
         hdu_tot = fits.ImageHDU(gal+icl, name = 'ICL+BCG+SATELLITES')
-        
         hdu_icl_dei = fits.ImageHDU(icl_dei, name = 'ICL+BCG DET. ERR.')
-
         hdu_gal_dei = fits.ImageHDU(gal_dei, name = 'SAT DET. ERR.')
         hdu_tot_dei = fits.ImageHDU(icl_dei+gal_dei, name = 'ICL+BCG+SAT DET. ERR.')
         
@@ -570,7 +563,9 @@ def synthesis_bcgwavsizesep_with_masks( ol, itl, nfp, chan, gamma, lvl_sep_big, 
     '''
     # path, list & variables
     icl = np.zeros( (xs, ys) )
+    icl_dei = np.zeros( (xs, ys) )
     gal = np.zeros( (xs, ys) )
+    gal_dei = np.zeros( (xs, ys) )
     im_art = np.zeros( (xs, ys) )
     im_unclass = np.zeros( (xs, ys) )
 
@@ -586,68 +581,78 @@ def synthesis_bcgwavsizesep_with_masks( ol, itl, nfp, chan, gamma, lvl_sep_big, 
     xc = xs / 2.
     yc = ys / 2.
 
-    # Kurtosis + ICL+BCG
-    for j, o in enumerate(ol):
+    ######################################## MEMORY v
+    opath = nfp + '*ol.it*.pkl'
+    itpath = nfp + '*itl.it*.pkl'
+    opathl = glob.glob(opath)
+    opathl.sort()
 
-        x_min, y_min, x_max, y_max = o.bbox
-        sx = x_max - x_min
-        sy = y_max - y_min
-        itm = itl[j].interscale_maximum
-        xco = itm.x_max
-        yco = itm.y_max
-        lvlo = o.level
+    # Interscale tree lists
+    itpathl = glob.glob(itpath)
+    itpathl.sort()
 
-        if kurt_filt == True:
-            k = kurtosis(o.image.flatten(), fisher=True)
-            if k < 0:
-                if (o.level >= lvl_sep_big) & (rm_gamma_for_big == True):
-                    im_art[ x_min : x_max, y_min : y_max ] += o.image
-                else:
+    for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        gc.collect()
+        ol = d.store_objects.read_ol_from_pickle(op)
+        itl = d.store_objects.read_itl_from_pickle(itlp)
+
+        for o, it in zip(ol, itl):
+            ######################################## MEMORY ^
+
+            x_min, y_min, x_max, y_max = o.bbox
+            sx = x_max - x_min
+            sy = y_max - y_min
+            itm = it.interscale_maximum
+            xco = itm.x_max
+            yco = itm.y_max
+            
+            if kurt_filt == True:
+                k = kurtosis(o.image.flatten(), fisher=True)
+                if k < 0:
                     im_art[ x_min : x_max, y_min : y_max ] += o.image * gamma
+                    continue
+
+            # Remove background
+            if o.level >= lvl_sep_max:
                 continue
 
-        # Remove background
-        if o.level >= lvl_sep_max:
-            continue
+            # Only atoms within analysis radius
+            dR = np.sqrt( (xc - xco)**2 + (yc - yco)**2 )
+            if dR > R:
+                continue
 
-        # Only atoms within analysis radius
-        dR = np.sqrt( (xc - xco)**2 + (yc - yco)**2 )
-        if dR > R:
-            continue
+            # ICL + BCG
+            if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
 
-        # ICL + BCG
-        if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
+                '''# BCG
+                xbcg, ybcg = [ xs, ys ] # pix long, ds9 convention
+                if mscbcg[xco, yco] == 1:
 
-            # BCG
-            xbcg, ybcg = [ 1050, 980 ] # pix long, ds9 convention
-            if mscbcg[xco, yco] == 1:
+                    dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
+                    if (o.level <= 3) & (dr < rc_pix):
 
-                dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
-                if (o.level <= 3) & (dr < rc_pix):
-
-                    if o.level >= lvl_sep_big:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
                         icl_al.append([o, xco, yco])
-                    else:
-                        icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                        icl_al.append([o, xco, yco])
 
-                elif o.level >= 4:
-                    if o.level >= lvl_sep_big:
+                    elif o.level >= 4:
                         icl[ x_min : x_max, y_min : y_max ] += o.image
-                        icl_al.append([o, xco, yco])
-                    else:
-                        icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                        icl_al.append([o, xco, yco])
+                        icl_al.append([o, xco, yco])'''
+                        
+                # BCG
+                if mscbcg[xco, yco] == 1:
+                    icl[ x_min : x_max, y_min : y_max ] += o.image
+                    icl_dei[ x_min : x_max, y_min : y_max ] += o.det_err_image
+                    icl_al.append([o, xco, yco])
+                    continue
 
-            # ICL
-            else:
-                if o.level >= lvl_sep_big:
-
+                # ICL
+                else:
                     if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
 
                         #%%%%%
-                        coo_spur_halo = [ [1615, 1665], [1685, 1480], [530, 260] ] # pix long, ds9 convention
+                        coo_spur_halo = []
+                        # [ [1615, 1665], [1685, 1480], [530, 260] ] # pix long, ds9 convention
 
                         flag = False
                         for ygal, xgal in coo_spur_halo:
@@ -655,67 +660,40 @@ def synthesis_bcgwavsizesep_with_masks( ol, itl, nfp, chan, gamma, lvl_sep_big, 
                             dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
                             if (dr <= rc_pix) & (o.level == 5):
                                 flag = True
-
+                            
                         if flag == False:
-                            #%
                             icl[ x_min : x_max, y_min : y_max ] += o.image
                             icl_al.append([o, xco, yco])
                             at_test.append([xco, yco])
-                    else:
-                        #gal[ x_min : x_max, y_min : y_max ] += o.image
-                        noticl_al.append([o, xco, yco])
+                    
+                        else:
+                            gal[ x_min : x_max, y_min : y_max ] += o.image
+                            noticl_al.append([o, xco, yco])
 
-                else:
-
-                    if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
-
-                        #%%%%%
-                        coo_spur_halo = [ [1615, 1665], [1685, 1480], [530, 260] ] # pix long, ds9 convention
-                        flag = False
-                        for ygal, xgal in coo_spur_halo:
-
-                            dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
-                            if (dr <= rc_pix) & (o.level == 5):
-                                flag = True
-
-                        if flag == False:
-                            #%
-                            icl[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                            icl_al.append([o, xco, yco])
-                            #%
-                            at_test.append([xco, yco])
-                            #%
                     else:
                         noticl_al.append([ o, xco, yco ])
 
-        else:
-            noticl_al.append([ o, xco, yco ])
+                # Galaxies
+                for j, (o, xco, yco) in enumerate(noticl_al):
 
-    # Galaxies
-    for j, (o, xco, yco) in enumerate(noticl_al):
+                    x_min, y_min, x_max, y_max = o.bbox
+                    if mscstar[xco, yco] != 1:
 
-        x_min, y_min, x_max, y_max = o.bbox
-        if mscstar[xco, yco] != 1:
+                    # Satellites
+                    if o.level < lvl_sep:
 
-            # Satellites
-            if o.level < lvl_sep:
+                        flag = False
+                        for ygal, xgal in cat_gal:
+                            dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
+                            if dr <= rc_pix:
+                                flag = True
+                                gal[ x_min : x_max, y_min : y_max ] += o.image
+                                gal_al.append([o, xco, yco])
+                                break
 
-                flag = False
-                for ygal, xgal in cat_gal:
-                    dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
-                    if dr <= rc_pix:
-                        flag = True
-                        if o.level >= lvl_sep_big:
-                            gal[ x_min : x_max, y_min : y_max ] += o.image
-                            gal_al.append([o, xco, yco])
-                        else:
-                            gal[ x_min : x_max, y_min : y_max ] += o.image * gamma
-                            gal_al.append([o, xco, yco])
-                        break
-
-                # If not identified as galaxies --> test if BCG again
-                if flag == False:
-                    unclass_al.append([ o, xco, yco ])
+                            # If not identified as galaxies --> test if BCG again
+                            if flag == False:
+                                unclass_al.append([ o, xco, yco ])
 
     # Test for unclassified atoms --> sometimes extended BCG halo is missed because
     # of the nature of wavsep scheme.
