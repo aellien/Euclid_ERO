@@ -2,7 +2,7 @@
 #SBATCH --job-name=euclid_ERO
 #SBATCH --nodelist=n07
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=15
 #SBATCH --time=48:00:00
 #SBATCH --output /n03data/ellien/Euclid_ERO/logs/%x.%j.out 
 #SBATCH --error  /n03data/ellien/Euclid_ERO/logs/%x.%j.err
