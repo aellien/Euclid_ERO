@@ -14,6 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from skimage.morphology import binary_dilation
 from scipy.stats import kurtosis
 import gc
+import datetime
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def synthesis_fullfield( oim, nfp, xs, ys, write_fits = True ):
@@ -358,7 +359,8 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
     itpathl.sort()
 
     for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
-        
+        print('it %03d'%i)
+
         gc.collect()
         ol = d.store_objects.read_ol_from_hdf5(op)
         itl = d.store_objects.read_itl_from_hdf5(itlp)
@@ -515,13 +517,15 @@ def synthesis_bcgwavsep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, xs, 
         plt.close('all')
 
     if measure_PR == True:
-
+        print('start bootstrap')
+        start = datetime.now()
         # Measure Fractions and uncertainties
         F_ICL_m, F_ICL_low, F_ICL_up, out_sed_icl =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         F_gal_m, F_gal_low, F_gal_up, out_sed_gal =  selection_error(gal_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
         f_ICL_m = F_ICL_m / (F_ICL_m + F_gal_m)
         f_ICL_low = F_ICL_low / (F_ICL_low + F_gal_up)
         f_ICL_up = F_ICL_up / (F_ICL_up + F_gal_low)
+        print(datetime.now() - start)
         
         print('\nWS + SF -- ICL+BCG --  z = %d'%lvl_sep)
         print('N = %4d   F_ICL = %f Mjy/sr  err_low = %f Mjy/sr  err_up = %f Mjy/sr'%(len(icl_al), F_ICL_m, F_ICL_low, F_ICL_up))
@@ -587,6 +591,8 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
     itpathl.sort()
 
     for i, ( op, itlp ) in enumerate( zip( opathl, itpathl )):
+        
+        print('it %03d'%i)
         
         gc.collect()
         ol = d.store_objects.read_ol_from_hdf5(op)
@@ -761,6 +767,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
         plt.close('all')
 
     if measure_PR == True:
+        print('start bootstrap')
 
         # Measure Fractions and uncertainties
         F_ICL_m, F_ICL_low, F_ICL_up, out_sed =  selection_error(icl_al, unclass_al, M = N_err, percent = per_err, xs = xs, ys = ys, flux_lim = flux_lim, mscsedl = mscsedl)
@@ -1328,7 +1335,7 @@ def make_results_cluster( sch, oim, nfp, filt, size_sep, size_sep_pix, lvl_sep, 
 if __name__ == '__main__':
 
     # Paths, lists & variables
-
+    '''
     path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
     path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out6'
     path_analysis = path_data
@@ -1339,7 +1346,7 @@ if __name__ == '__main__':
     path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out6/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
-    '''
+    
     nfl = [ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits' ]#, 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits' ]
 
     lvl_sepl = [ 4, 5, 6 ] # wavelet scale separation
@@ -1356,7 +1363,7 @@ if __name__ == '__main__':
     rc_pix = rc / physcale / pix_scale # pixels
 
 
-    N_err = 100
+    N_err = 10
     per_err = 0.1
 
     kurt_filt = True
@@ -1370,9 +1377,9 @@ if __name__ == '__main__':
     ray_outputs = []
 
     # ray hyperparameters
-    n_cpus = 10
-    #ray.init(num_cpus = n_cpus)
-    ray.init()    
+    n_cpus = 1
+    ray.init(num_cpus = n_cpus)
+    #ray.init()    
     
     # Read galaxy catalog
     cat_gal = np.loadtxt(os.path.join(path_analysis,'A2390_redMapper_Pmem_gt_0.8.txt'))[:, -2:]
