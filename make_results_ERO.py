@@ -1376,9 +1376,9 @@ def make_results_cluster( sch, oim, nfp, filt, size_sep, size_sep_pix, lvl_sep, 
 if __name__ == '__main__':
 
     # Paths, lists & variables
-    '''
+    
     path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
-    path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out6'
+    path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out7'
     path_analysis = path_data
     '''
     # Paths, lists & variables
@@ -1387,7 +1387,7 @@ if __name__ == '__main__':
     path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out6/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
-    
+    '''
     nfl = [ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits' ]
 
     lvl_sepl = [ 4, 5, 6 ] # wavelet scale separation
@@ -1418,9 +1418,9 @@ if __name__ == '__main__':
     ray_outputs = []
 
     # ray hyperparameters
-    n_cpus = 4
+    #n_cpus = 4
     ray.init(num_cpus = n_cpus)
-    #ray.init()    
+    ray.init()    
     
     # Read galaxy catalog
     cat_gal = np.loadtxt(os.path.join(path_analysis,'A2390_redMapper_Pmem_gt_0.8.txt'))[:, -2:]
@@ -1464,7 +1464,7 @@ if __name__ == '__main__':
             lvl_sep = np.nan
             size_sep = np.nan
             size_sep_pix = np.nan
-            '''
+            
             ray_refs.append( make_results_cluster.remote(sch = 'fullfield', \
                                                  oim = id_oim, \
                                                  nfp = nfp, \
@@ -1491,7 +1491,7 @@ if __name__ == '__main__':
                                                  kurt_filt = kurt_filt, \
                                                  plot_vignet = plot_vignet, \
                                                  write_fits = write_fits, \
-                                                 measure_PR = measure_PR ))'''
+                                                 measure_PR = measure_PR ))
                         
             '''
             # ICL -- WS ------------------------------------------------
@@ -1565,10 +1565,10 @@ if __name__ == '__main__':
                                                 plot_vignet = plot_vignet, \
                                                 write_fits = write_fits, \
                                                 measure_PR = measure_PR ))
-            
+            '''
             # ICL+BCG -- WS + SF ---------------------------------------
             for lvl_sep in lvl_sepl:
-                ray_refs.append( make_results_cluster.options(memory = 10 * 1024 * 1024 * 1024).remote(sch = 'WS+BCGSF', \
+                ray_refs.append( make_results_cluster.options(memory = 8 * 1024 * 1024 * 1024).remote(sch = 'WS+BCGSF', \
                                                 oim = oim, \
                                                 nfp = nfp, \
                                                 filt = filt, \
@@ -1595,7 +1595,7 @@ if __name__ == '__main__':
                                                 plot_vignet = plot_vignet, \
                                                 write_fits = write_fits, \
                                                 measure_PR = measure_PR ))
-            
+            '''
             # ICL -- WS + SF + SS --------------------------------------
             for lvl_sep in lvl_sepl:
                 for size_sep in size_sepl:
@@ -1640,7 +1640,7 @@ if __name__ == '__main__':
                 for size_sep in size_sepl:
 
                     size_sep_pix = size_sep / physcale / pix_scale # pixels
-                    ray_refs.append( make_results_cluster.remote(sch = 'WS+BCGSF+SS', \
+                    ray_refs.append( make_results_cluster.options(memory = 8 * 1024 * 1024 * 1024).remote(sch = 'WS+BCGSF+SS', \
                                                     oim = oim, \
                                                     nfp = nfp, \
                                                     filt = filt, \
