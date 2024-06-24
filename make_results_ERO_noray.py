@@ -307,6 +307,8 @@ if __name__ == '__main__':
     lvl_sep_max = sys.argv[7] # lvl_sep_max = 9
     rc = sys.argv[8] # rc = 10 # kpc, distance to center to be classified as gal
     
+    print('In python', sys.argv)
+    
     physcale = 3.68 # kpc/"
     pix_scale = 0.3
     mu_lim = 35
