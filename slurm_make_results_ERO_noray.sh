@@ -15,7 +15,13 @@ cd $path_data
 for nf in Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits
 do
 echo "launch $nf."
-python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf 5 80 1000 6 10 9 10&
+    for lvl_sep in 5 6
+    do
+        for size_sep in 60 80 100 140
+        do
+            python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf $lvl_sep $size_sep 1000 6 10 9 10&
+        done
+    done
 done
 wait
 exit 0
