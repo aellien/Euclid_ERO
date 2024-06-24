@@ -17,8 +17,29 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob as glob
 import os as os
+import matplotlib as mpl
 from rebin import rebin
 from vorbin.voronoi_2d_binning import *
+
+def plot_RGB_fullfield(r, g, b, artist_list):
+    plt.figure()
+    sdc = np.copy([r, g, b])
+    sdc[sdc < 0.4] = 0
+    sdc[sdc > 0] = 1
+    print(sdc.shape)
+    master_sup = np.prod(sdc, axis = 0)
+    b *= master_sup*255.0/b.max()
+    g *= master_sup*255.0/g.max()
+    r *= master_sup*255.0/r.max()
+    image = make_lupton_rgb(r, g, b, Q = 10, stretch = 0.5)
+    for a in artist_list:
+        #a.set_marker('x')
+        a.set_markeredgecolor('blue')
+        a.set_markersize('2')
+        plt.gca().add_artist(a)
+        
+    plt.imshow(image, origin= 'lower')
+    plt.savefig('/home/aellien/Euclid_ERO/plots/RGB_raw.png', format = 'png', dpi = 1000)
 
 def display_pixels(x, y, xmin, xmax, ymin, ymax, counts, pixelSize):
     """
@@ -47,28 +68,32 @@ if __name__ == '__main__':
     # Paths, lists & variables
     path_data = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
     path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
-    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out4/'
+    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out7/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
     
     #plt.ion()
 
     
-    for input_file in glob.glob(os.path.join(path_data, '*-Y-*crop.fits')):
+    for input_file in glob.glob(os.path.join(path_data, '*-H-*crop.fits')):
         
         hdu = fits.open(input_file)
         oim = hdu[0].data
         xs, ys = oim.shape
         print(input_file)
         
-        nf = input_file.split('/')[-1][:-5]
-        nfp = os.path.join(path_wavelets, nf + 'synth.icl.bcgwavsizesepmask_006_100.fits')
+        nf = input_file.split('/')[-1][:-4]
+        nfp = os.path.join(path_wavelets, nf + 'synth.bcgwavsizesepmask_005_100.fits')
 
-        icl = fits.getdata(nfp)
+        hdu = fits.open(nfp)
+        icl = hdu[1].data
+        
+        
+        icl[icl < 0.4] = 0
         
         bin_icl = rebin(icl, 10, 10, 'sum')
         xs, ys = np.shape(bin_icl)
-        snr = np.sum(bin_icl) / 400
+        snr = np.sum(bin_icl) / 1000
         
         signal_idx = np.where(bin_icl != 0.)
         flat_icl = bin_icl[signal_idx]
@@ -85,6 +110,7 @@ if __name__ == '__main__':
     
     vorl = []
     colors = []
+    rgb = []
     #2 = H, 1 = Y, 0 = J
     #lambda Y->J->H 
     for input_file in glob.glob(os.path.join(path_data, '*crop.fits')):
@@ -93,10 +119,13 @@ if __name__ == '__main__':
         oim = hdu[0].data
         print(input_file)
         
-        nf = input_file.split('/')[-1][:-5]
-        nfp = os.path.join(path_wavelets, nf + 'synth.icl.bcgwavsizesepmask_006_100.fits')
+        nf = input_file.split('/')[-1][:-4]
+        nfp = os.path.join(path_wavelets, nf + 'synth.bcgwavsizesepmask_005_100.fits')
 
-        icl = fits.getdata(nfp)
+        hdu = fits.open(nfp)
+        icl = hdu[1].data
+        gal = hdu[2].data
+        
         bin_icl = rebin(icl, 10, 10, 'sum')
         flat_icl = bin_icl[signal_idx]
         
@@ -112,29 +141,36 @@ if __name__ == '__main__':
         mag_vor_icl = -2.5 * np.log10(vor_icl) + 30
         #mag_vor_icl[mag_vor_icl > 30] = 0
         colors.append( mag_vor_icl)
+        rgb.append(gal)
         
+    
     # RGB
-    rgb = make_lupton_rgb(vorl[2], vorl[0], vorl[1], Q=10, stretch=0.1)
-    plt.imshow(rgb, origin='lower')
+    vrgb = make_lupton_rgb(vorl[2], vorl[0], vorl[1], Q=10, stretch=0.1)
+    plt.imshow(vrgb, origin='lower')
     plt.savefig(os.path.join(path_plots, 'RGB_vor_YJH.png'))
+    
+    r, g, b = rgb[2], rgb[0], rgb[1]
+    plot_RGB_fullfield(r, g, b, [])
     
     # HY
     plt.figure(1)
-    plt.imshow(colors[2] - colors[1], cmap = 'seismic_r', origin='lower', vmax = 2, vmin = -2)
+    cmap = mpl.colormaps.get_cmap('seismic_r')
+    cmap.set_bad(color='white')
+    plt.imshow(colors[2] - colors[1], cmap = cmap, origin='lower', vmax = 2, vmin = -2)
     plt.suptitle("H-Y color map")
     plt.colorbar()
     plt.savefig(os.path.join(path_plots, 'color_vor_HY.png'))
     
     # HJ
     plt.figure(2)
-    plt.imshow(colors[2] - colors[0], cmap = 'seismic_r', origin='lower', vmax = 2, vmin = -2)
+    plt.imshow(colors[2] - colors[0], cmap = cmap, origin='lower', vmax = 2, vmin = -2)
     plt.suptitle("H-J color map")
     plt.colorbar()
     plt.savefig(os.path.join(path_plots, 'color_vor_HJ.png'))
     
     # JY
     plt.figure(3)
-    plt.imshow(colors[0] - colors[1], cmap = 'seismic_r', origin='lower', vmax = 2, vmin = -2)
+    plt.imshow(colors[0] - colors[1], cmap = cmap, origin='lower', vmax = 2, vmin = -2)
     plt.suptitle("J-Y color map")
     plt.colorbar()
     plt.savefig(os.path.join(path_plots, 'color_vor_JY.png'))

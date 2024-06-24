@@ -9,6 +9,6 @@
 
 source /home/ellien/.bashrc
 conda activate dawis
-ray start --head --port=6379 & #--block --verbose  &
+ray start --head --port=6379 --block --verbose  &
 python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO.py
 exit 0

@@ -1360,7 +1360,6 @@ if __name__ == '__main__':
     rc = 10 # kpc, distance to center to be classified as gal
     rc_pix = rc / physcale / pix_scale # pixels
 
-
     N_err = 100
     per_err = 0.05
 
