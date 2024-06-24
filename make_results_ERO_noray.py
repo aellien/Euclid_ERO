@@ -289,7 +289,7 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
                         for ygal, xgal in coo_spur_halo:
 
                             dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
-                            if dr <= rc_pix:
+                            if (dr <= 100) & (4 < lvlo < 7 ):
                                 flag = True
                         #%%%%%%% ^^^^^^^^^^^^^^^^^^^^^^^^^^
                             
@@ -300,6 +300,8 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
                             tot_icl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
                             at_test.append([xco, yco])
                             continue
+                        
+                        noticl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
                             
                     else:
                         noticl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
