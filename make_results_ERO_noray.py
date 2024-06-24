@@ -284,14 +284,14 @@ if __name__ == '__main__':
     path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
     path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out7'
     path_analysis = path_data
-    '''
+    
     # Paths, lists & variables
     path_data = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
     path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
     path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out6/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
-    '''
+    
         
     nf = sys.argv[1] #[ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits' ]
     nfp = os.path.join( path_wavelets, nf[:-4] )
@@ -300,15 +300,16 @@ if __name__ == '__main__':
     oim = hdu[0].data
     xs, ys = oim.shape
     
-    lvl_sep = sys.argv[2] # lvl_sepl = [ 4, 5, 6 ] # wavelet scale separation
-    size_sep = sys.argv[3] # size_sepl = [60, 80, 100, 140, 200 ] # size separation [kpc]
-    R_kpc = sys.argv[4] # R_kpcl = [ 1000 ] # radius in which quantities are measured [kpc]
-    lvl_sep_bcg = sys.argv[5] # lvl_sep_bcg = 6
-    n_levels = sys.argv[6] # n_levels = 10
-    lvl_sep_max = sys.argv[7] # lvl_sep_max = 9
-    rc = sys.argv[8] # rc = 10 # kpc, distance to center to be classified as gal
+    lvl_sep = int(sys.argv[2]) # lvl_sepl = [ 4, 5, 6 ] # wavelet scale separation
+    size_sep = int(sys.argv[3]) # size_sepl = [60, 80, 100, 140, 200 ] # size separation [kpc]
+    R_kpc = int(sys.argv[4]) # R_kpcl = [ 1000 ] # radius in which quantities are measured [kpc]
+    lvl_sep_bcg = int(sys.argv[5]) # lvl_sep_bcg = 6
+    n_levels = int(sys.argv[6]) # n_levels = 10
+    lvl_sep_max = int(sys.argv[7]) # lvl_sep_max = 9
+    rc = int(sys.argv[8]) # rc = 10 # kpc, distance to center to be classified as gal
     
-    print('In python', sys.argv)
+    counter=int(os.environ['SLURM_PROCID'])
+    print(f"hello from worker number {counter} - %s"%nf)
     
     physcale = 3.68 # kpc/"
     pix_scale = 0.3
@@ -316,7 +317,9 @@ if __name__ == '__main__':
     ZP_AB = 30
     flux_lim = 10**( (ZP_AB - mu_lim) / 2.5 )
     rc_pix = rc / physcale / pix_scale # pixels
-
+    size_sep_pix = size_sep / physcale / pix_scale # pixels
+    R_pix = R_kpc / physcale / pix_scale # pixels
+    
     N_err = 100
     per_err = 0.05
 
@@ -334,10 +337,10 @@ if __name__ == '__main__':
     mscbcg = fits.getdata(os.path.join(path_analysis,'mscbcg.fits'))
     mscstar = fits.getdata(os.path.join(path_analysis,'mscstar.fits'))
     msat = fits.getdata(os.path.join(path_analysis,'msat.fits'))
-    mscsed = []
+    mscsedl = []
     
     # Synthesis
-    output_df = synthesis_wavsizesep_with_masks( nfp = nfp, 
+    output_df = synthesis_bcgwavsizesep_with_masks( nfp = nfp, 
                                              lvl_sep = lvl_sep, 
                                              lvl_sep_max = lvl_sep_max, 
                                              lvl_sep_bcg = lvl_sep_bcg, 
