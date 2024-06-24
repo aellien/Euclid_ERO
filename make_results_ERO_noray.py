@@ -27,6 +27,147 @@ from datetime import datetime
 import h5py
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, mscsedl):
+    '''Computation of classification error on flux.
+    '''
+    # Output array
+    sed_sample = []
+
+    # Sample
+    size_sample = np.random.uniform(low = int( len(atom_in_list) * (1. - percent)), \
+                               high = int( len(atom_in_list) + len(atom_in_list) * percent ), \
+                               size = M).astype(int)
+    replace_sample = []
+    for s in size_sample:
+        replace_sample.append(int(np.random.uniform(low = 0, high = int( s * percent ))))
+    replace_sample = np.array(replace_sample)
+
+    flux_sample = []
+    flux_err_sample = []
+    for i, (s, r) in enumerate(zip(size_sample, replace_sample)):
+        
+        print(i, s, r, len(atom_in_list), len(atom_out_list))
+        im_s = np.zeros((xs, ys))
+        im_s_err = np.zeros((xs, ys))
+        if s < len(atom_in_list):
+            print('cc1')
+            flux = 0
+            draw = random.sample(atom_in_list, s)
+
+        if s >= len(atom_in_list):
+            print('cc2')
+
+            flux = 0
+            draw1 = random.sample(atom_in_list, len(atom_in_list) - r)
+            draw2 = random.sample(atom_out_list, s - len(atom_in_list) + r)
+            draw = draw1 + draw2
+            
+        #print(i, len(atom_in_list), len(atom_out_list), len(draw), len(draw[0]), draw[0])
+        for (image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo) in draw:
+            im_s[ x_min : x_max, y_min : y_max ] += image
+            im_s_err[ x_min : x_max, y_min : y_max ] += det_err_image
+            #flux += np.sum(o.image)
+
+        flux = np.sum(im_s[im_s >= flux_lim])
+        flux_err = np.sqrt(np.sum(im_s_err[im_s >= flux_lim]**2))
+        flux_sample.append(flux)
+        flux_err_sample.append(flux_err)
+
+        line = []
+        for mscsed in mscsedl:
+            flux_sed = np.sum(im_s[mscsed.astype(bool)])
+            line.append(flux_sed)
+
+        sed_sample.append(line)
+
+    sed_sample = np.array(sed_sample)
+    mean_sed = np.median(sed_sample, axis = 0)
+    up_err_sed = np.percentile(sed_sample, 95, axis = 0)
+    low_err_sed = np.percentile(sed_sample, 5, axis = 0)
+    out_sed = np.array([ mean_sed, low_err_sed, up_err_sed ] ).swapaxes(0, 1).flatten() # 1d size n_sed_region x 3
+
+    flux_sample = np.array(flux_sample)
+    flux_err_sample = np.array(flux_err_sample)
+    mean_flux = np.median(flux_sample)
+    up_flux = np.percentile(flux_sample, 95)
+    low_flux = np.percentile(flux_sample, 5)
+    mean_flux_err = np.median(flux_sample)
+    up_flux_err = np.percentile(flux_sample, 95)
+    low_flux_err = np.percentile(flux_sample, 5)
+
+    #plt.figure()
+    #plt.hist(flux_sample, bins = 10)
+    #plt.show()
+
+    return mean_flux, low_flux, up_flux, mean_flux_err, up_flux_err, low_flux_err, out_sed
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def PR_with_selection_error(atom_in_list, atom_out_list, M, percent, R, xs, ys):
+    '''Computation of classification error on PR.
+    '''
+    size_sample = np.random.uniform(low = int( len(atom_in_list) * (1. - percent)), \
+                               high = int( len(atom_in_list) + len(atom_in_list) * percent ), \
+                               size = M).astype(int)
+    replace_sample = []
+    for s in size_sample:
+        replace_sample.append(int(np.random.uniform(low = 0, high = int( s * percent ))))
+    replace_sample = np.array(replace_sample)
+
+    PR_sample = []
+    for s, r in zip(size_sample, replace_sample):
+        im = np.zeros((xs, ys))
+
+        if s < len(atom_in_list):
+
+            draw = random.sample(atom_in_list, s)
+            for (image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo) in draw:
+                im[ x_min : x_max, y_min : y_max ] += image
+
+            orderl = []
+            for order in range(1, 5):
+                PR = power_ratio( image = im, order = order, radius = R )
+                orderl.append(PR)
+            PR_sample.append(orderl)
+
+        if s >= len(atom_in_list):
+
+            flux = 0
+            draw1 = random.sample(atom_in_list, len(atom_in_list) - r)
+            draw2 = random.sample(atom_out_list, s - len(atom_in_list) + r)
+            draw = draw1 + draw2
+            for (image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo) in draw:
+                im[ x_min : x_max, y_min : y_max ] += image
+
+            orderl = []
+
+            for order in range(1, 5):
+                PR = power_ratio( image = im, order = order, radius = R )
+                orderl.append(PR)
+            PR_sample.append(orderl)
+
+        #%---
+        #interval = AsymmetricPercentileInterval(5, 99.5) # meilleur rendu que MinMax or ZScale pour images reconstruites
+        #fig, ax = plt.subplots(1)
+        #poim = ax.imshow(im, norm = ImageNormalize( im, interval = interval, stretch = LogStretch()), cmap = 'binary', origin = 'lower')
+        #%---
+
+    PR_sample = np.array(PR_sample)
+    PR_results = []
+    for i in range(1, 5):
+        mean_PR = np.median(PR_sample[:, i - 1])
+        up_err = np.percentile(PR_sample[:, i - 1], 95)
+        low_err = np.percentile(PR_sample[:, i - 1], 5)
+        PR_results.append([mean_PR, up_err, low_err])
+    #%---
+    #plt.figure()
+    #for i in range(1,5):
+    #    plt.hist(PR_sample[:, i-1], bins = 10, alpha = 0.5)
+    #plt.show()
+    #%---
+
+    return PR_results
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscstar, mscell, mscbcg, mscsedl, msat, R, rc_pix, N_err, per_err, flux_lim, kurt_filt = True, plot_vignet = False, write_fits = True, measure_PR = False ):
     '''Wavelet Separation + Spatial filtering.
     ICL --> Atoms with z > lvl_sep, with maximum coordinates within ellipse mask 'mscell' and with size > size_sep_pix.
