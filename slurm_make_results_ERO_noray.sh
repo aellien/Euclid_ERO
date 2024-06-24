@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=synth_Euclid_ERO
 #SBATCH --nodelist=n09
-#SBATCH --ntasks-per-node=12
-#SBATCH --cpus-per-task=2
+#SBATCH --ntasks-per-node=3
+#SBATCH --cpus-per-task=8
 #SBATCH --time=48:00:00
 #SBATCH --output /n03data/ellien/Euclid_ERO/logs/%x.%j.out 
 #SBATCH --error  /n03data/ellien/Euclid_ERO/logs/%x.%j.err
@@ -17,7 +17,7 @@ do
 echo "launch $nf."
     for lvl_sep in 5
     do
-        for size_sep in 60 80 100 140
+        for size_sep in 100
         do
             srun python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf $lvl_sep $size_sep 1000 6 10 9 10&
         done
