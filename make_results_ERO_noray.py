@@ -309,7 +309,7 @@ if __name__ == '__main__':
     rc = int(sys.argv[8]) # rc = 10 # kpc, distance to center to be classified as gal
     
     counter=int(os.environ['SLURM_PROCID'])
-    print(f"hello from worker number {counter} - %s"%nf)
+    print(f"hello from worker number {counter} - {nf}")
     
     physcale = 3.68 # kpc/"
     pix_scale = 0.3
