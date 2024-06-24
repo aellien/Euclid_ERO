@@ -75,7 +75,7 @@ if __name__ == '__main__':
     #plt.ion()
 
     
-    for input_file in glob.glob(os.path.join(path_data, '*-H-*crop.fits')):
+    for input_file in glob.glob(os.path.join(path_data, '*-J-*crop.fits')):
         
         hdu = fits.open(input_file)
         oim = hdu[0].data
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         print(input_file)
         
         nf = input_file.split('/')[-1][:-4]
-        nfp = os.path.join(path_wavelets, nf + 'synth.bcgwavsizesepmask_005_100.fits')
+        nfp = os.path.join(path_wavelets, nf + 'synth.bcgwavsizesepmask_005_080.fits')
 
         hdu = fits.open(nfp)
         icl = hdu[1].data

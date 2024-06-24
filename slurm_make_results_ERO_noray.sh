@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=synth_Euclid_ERO
 #SBATCH --nodelist=n09
-#SBATCH --ntasks-per-node=24
-#SBATCH --cpus-per-task=1
+#SBATCH --ntasks-per-node=12
+#SBATCH --cpus-per-task=2
 #SBATCH --time=48:00:00
 #SBATCH --output /n03data/ellien/Euclid_ERO/logs/%x.%j.out 
 #SBATCH --error  /n03data/ellien/Euclid_ERO/logs/%x.%j.err
@@ -15,7 +15,7 @@ cd $path_data
 for nf in Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits
 do
 echo "launch $nf."
-    for lvl_sep in 5 6
+    for lvl_sep in 5
     do
         for size_sep in 60 80 100 140
         do

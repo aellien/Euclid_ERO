@@ -27,7 +27,7 @@ from datetime import datetime
 import h5py
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, mscsedl):
+def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, mscsedl, write_plots = False, nfp = None):
     '''Computation of classification error on flux.
     '''
     # Output array
@@ -79,7 +79,14 @@ def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, m
             line.append(flux_sed)
 
         sed_sample.append(line)
-
+        
+        if write_plots == True:
+            interval = AsymmetricPercentileInterval(5, 99.5) # meilleur rendu que MinMax or ZScale pour images reconstruites
+            plt.figure()
+            plt.imshow(im_s, norm = ImageNormalize( im_s, interval = interval, stretch = LogStretch()), cmap = 'binary', origin = 'lower')
+            plt.savefig('/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out7/bootstrap/%s_%03d.png'%(nfp, i))
+            plt.close()
+            
     sed_sample = np.array(sed_sample)
     mean_sed = np.median(sed_sample, axis = 0)
     up_err_sed = np.percentile(sed_sample, 95, axis = 0)
@@ -277,13 +284,12 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
                     if (lvlo >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
 
                         #%%%%% Je laisse au cas où %%%%% v
-                        coo_spur_halo = []
-                        # [ [1615, 1665], [1685, 1480], [530, 260] ] # pix long, ds9 convention
+                        coo_spur_halo =  [ [2142, 2216], [1890, 2270] ] # pix long, ds9 convention
                         flag = False
                         for ygal, xgal in coo_spur_halo:
 
                             dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
-                            if (dr <= rc_pix) & (lvlo == 5):
+                            if dr <= rc_pix:
                                 flag = True
                         #%%%%%%% ^^^^^^^^^^^^^^^^^^^^^^^^^^
                             
