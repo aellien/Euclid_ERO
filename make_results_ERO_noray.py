@@ -290,7 +290,8 @@ if __name__ == '__main__':
     path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
     path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out6/'
     path_plots = '/home/aellien/Euclid_ERO/plots'
-    path_analysis = '/home/aellien/Euclid_ERO/analysis/''''
+    path_analysis = '/home/aellien/Euclid_ERO/analysis/'
+    '''
     
         
     nf = sys.argv[1] #[ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits' ]
