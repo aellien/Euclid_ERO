@@ -11,10 +11,10 @@ source /home/ellien/.bashrc
 conda activate dawis
 
 path_data='/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
-for nfp in $path_data"/Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits"
+cd $path_data
+for nf in "/Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits"
 do
-basename "$nfp"
-nf="$(basename -- $nfp)"
+echo "launch $nf."
 python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO.py $nf 5 80 1000 6 10 9 10 &
 done
 
