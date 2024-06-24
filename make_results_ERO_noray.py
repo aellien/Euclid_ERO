@@ -517,4 +517,4 @@ if __name__ == '__main__':
     
     ofp = nfp + 'df.csv'
     print('Write results to %s'%ofp)
-    results_df.to_csv(ofp)
+    output_df.to_csv(ofp)
