@@ -296,6 +296,7 @@ if __name__ == '__main__':
     nf = sys.argv[1] #[ 'Euclid-NISP-J-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-H-ERO-Abell2390-LSB.DR3.crop.fits', 'Euclid-NISP-Y-ERO-Abell2390-LSB.DR3.crop.fits' ]
     nfp = os.path.join( path_wavelets, nf[:-4] )
     oim_file = os.path.join( path_data, nf )
+    hdu = fits.open(oim_file)
     oim = hdu[0].data
     xs, ys = oim.shape
     
