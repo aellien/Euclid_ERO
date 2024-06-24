@@ -46,16 +46,16 @@ def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, m
     flux_err_sample = []
     for i, (s, r) in enumerate(zip(size_sample, replace_sample)):
         
-        print(i, s, r, len(atom_in_list), len(atom_out_list))
+        #print(i, s, r, len(atom_in_list), len(atom_out_list))
         im_s = np.zeros((xs, ys))
         im_s_err = np.zeros((xs, ys))
         if s < len(atom_in_list):
-            print('cc1')
+            #print('cc1')
             flux = 0
             draw = random.sample(atom_in_list, s)
 
         if s >= len(atom_in_list):
-            print('cc2')
+            #print('cc2')
 
             flux = 0
             draw1 = random.sample(atom_in_list, len(atom_in_list) - r)
@@ -410,10 +410,12 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
         print('PR_3_m = %1.2e    PR_3_low = %1.2e    PR_3_up = %1.2e'%(PR_3_m, PR_3_low, PR_3_up))
         print('PR_4_m = %1.2e    PR_4_low = %1.2e    PR_4_up = %1.2e'%(PR_4_m, PR_4_low, PR_4_up))
     
-        out_sed_icl_df = pd.DataFrame( [output[-1]], columns = [ 'reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
+        out_sed_icl_df = pd.DataFrame( out_sed_icl, columns = [ 'icl_reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
+        out_sed_gal_df = pd.DataFrame( out_sed_gal, columns = [ 'gal_reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(output[-1]))]) # create df with all SED flux for all regions with correctly numbered column names
+
         output_df = pd.DataFrame( [[ nf, filt, sch, R_kpc, R_pix, lvl_sep, size_sep, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low ]], \
                         columns = [ 'nf', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep','F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
-        output_df = pd.concat( [output_df, out_sed_icl_df], axis = 1)
+        output_df = pd.concat( [output_df, out_sed_icl_df, out_sed_gal_df], axis = 1)
         
         return output_df
 

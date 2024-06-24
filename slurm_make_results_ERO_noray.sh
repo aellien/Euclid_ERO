@@ -12,7 +12,6 @@ conda activate dawis
 
 path_data='/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 cd $path_data
-echo $(pwd)
 for nf in Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits
 do
 echo "launch $nf."
