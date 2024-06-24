@@ -19,7 +19,7 @@ echo "launch $nf."
     do
         for size_sep in 60 80 100 140
         do
-            python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf $lvl_sep $size_sep 1000 6 10 9 10&
+            srun python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf $lvl_sep $size_sep 1000 6 10 9 10&
         done
     done
 done
