@@ -417,8 +417,8 @@ def synthesis_bcgwavsizesep_with_masks( nfp, lvl_sep, lvl_sep_max, lvl_sep_bcg, 
         print('PR_4_m = %1.2e    PR_4_low = %1.2e    PR_4_up = %1.2e'%(PR_4_m, PR_4_low, PR_4_up))
     
         hkw = ['m', 'low', 'up'] # To correctly name SED column names
-        out_sed_icl_df = pd.DataFrame( out_sed_icl, columns = [ 'icl_reg_%d_%s'%(i/3, hkw[i%3]) for i in range(out_sed_icl)]) # create df with all SED flux for all regions with correctly numbered column names
-        out_sed_gal_df = pd.DataFrame( out_sed_gal, columns = [ 'gal_reg_%d_%s'%(i/3, hkw[i%3]) for i in range(out_sed_gal)]) # create df with all SED flux for all regions with correctly numbered column names
+        out_sed_icl_df = pd.DataFrame( out_sed_icl, columns = [ 'icl_reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(out_sed_icl))]) # create df with all SED flux for all regions with correctly numbered column names
+        out_sed_gal_df = pd.DataFrame( out_sed_gal, columns = [ 'gal_reg_%d_%s'%(i/3, hkw[i%3]) for i in range(len(out_sed_gal))]) # create df with all SED flux for all regions with correctly numbered column names
 
         output_df = pd.DataFrame( [[ nf, filt, sch, R_kpc, R_pix, lvl_sep, size_sep, F_ICL_m, F_ICL_low, F_ICL_up, F_gal_m, F_gal_low, F_gal_up, f_ICL_m, f_ICL_low, f_ICL_up, PR_1_m, PR_1_up, PR_1_low, PR_2_m, PR_2_up, PR_2_low, PR_3_m, PR_3_up, PR_3_low, PR_4_m, PR_4_up, PR_4_low ]], \
                         columns = [ 'nf', 'filter', 'Atom selection scheme', 'R_kpc', 'R_pix', 'lvl_sep', 'size_sep','F_ICL_m', 'F_ICL_low', 'F_ICL_up', 'F_gal_m', 'F_gal_low', 'F_gal_up', 'f_ICL_m', 'f_ICL_low', 'f_ICL_up', 'PR_1_m', 'PR_1_up', 'PR_1_low', 'PR_2_m', 'PR_2_up', 'PR_2_low', 'PR_3_m', 'PR_3_up', 'PR_3_low', 'PR_4_m', 'PR_4_up', 'PR_4_low'  ])
@@ -472,7 +472,7 @@ if __name__ == '__main__':
     R_pix = R_kpc / physcale / pix_scale # pixels
     
     N_err = 100
-    per_err = 0.05
+    per_err = 0.1
 
     kurt_filt = True
     plot_vignet = False
