@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=synth_Euclid_ERO
 #SBATCH --nodelist=n09
-#SBATCH --ntasks-per-node=3
+#SBATCH --ntasks-per-node=24
 #SBATCH --cpus-per-task=1
 #SBATCH --time=48:00:00
 #SBATCH --output /n03data/ellien/Euclid_ERO/logs/%x.%j.out 
