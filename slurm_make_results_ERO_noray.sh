@@ -16,7 +16,7 @@ echo $(pwd)
 for nf in Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits
 do
 echo "launch $nf."
-srun python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf 5 80 1000 6 10 9 10
+python /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO_noray.py $nf 5 80 1000 6 10 9 10&
 done
-
+wait
 exit 0
