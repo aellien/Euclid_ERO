@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=euclid_ERO
+#SBATCH --job-name=synth_Euclid_ERO
 #SBATCH --nodelist=n09
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
@@ -9,7 +9,6 @@
 
 source /home/ellien/.bashrc
 conda activate dawis
-#ray start --head --port=6379 &
-sleep 10
-python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_cirrus_NISP_ray.py
+ray start --head --port=6379 --block --verbose  &
+python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/make_results_ERO.py
 exit 0
