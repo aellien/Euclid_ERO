@@ -105,7 +105,7 @@ def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, flux_lim, m
         
         if write_plots == True:
                 
-            interval = AsymmetricPercentileInterval(60, 99.99) # meilleur rendu que MinMax or ZScale pour images reconstruites
+            interval = AsymmetricPercentileInterval(40, 99.99) # meilleur rendu que MinMax or ZScale pour images reconstruites
             norm = ImageNormalize( im_m, interval = interval, stretch = LogStretch())
             #norm = ImageNormalize( im_m, interval = MinMaxInterval(), stretch = LogStretch())
             #norm = ImageNormalize( im_m, interval = ZScaleInterval(), stretch = LinearStretch())
