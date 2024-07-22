@@ -8,7 +8,7 @@ indir = '/home/aellien/Euclid_ERO/data/Euclid-VIS-Stack-ERO-Abell2390.DR3/'
 infile = 'cirrus_first_pass.fits'
 outdir = '/home/aellien/Euclid_ERO/wavelets/out8/'
 
-tau = 0.5   # Relative Threshold
+tau = 0.1   # Relative Threshold
 gamma = 1.0   # Attenuation (CLEAN) factor
 
 ceps = 1E-4    # Convergence value for epsilon
