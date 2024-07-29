@@ -5,9 +5,15 @@ import shutil
 import glob
 import ray
 
-indir = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
-infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-?-ERO-Abell2390-LSB.DR3.rot.crop.warp.input.synth.cirrus_res_pass1.fits'))]
-outdir = '/home/aellien/Euclid_ERO/wavelets/out11'
+#indir = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
+indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
+#infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-?-ERO-Abell2390-LSB.DR3.rot.crop.warp.input.synth.cirrus_res_pass1.fits'))]
+infile_list = ['Final_output_JGM_Abellfinal_psf_sub_Hv1_Callummock.rot.crop.warp.input.fits',
+               'Final_output_JGM_Abellfinal_psf_sub_Hv1_vC1_v24.rot.crop.warp.input.fits',
+               'Final_output_JGM_Abellfinal_psf_sub_Jv1_vC1_v21.rot.crop.warp.input.fits',
+               'Final_output_JGM_Abellfinal_psf_sub_Yv1_vC1_v21.rot.crop.warp.input.fits']
+#outdir = '/home/aellien/Euclid_ERO/wavelets/out11'
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out13/'
 tau = 0.1   # Relative Threshold
 gamma = 1.0   # Attenuation (CLEAN) factor
 
@@ -43,7 +49,7 @@ deconv = True
 
 n_cpus = 12
 size_patch = 100 # Number of objects in parallelized patch
-ray.init(num_cpus = n_cpus)
+ray.init()
 
 
 if os.path.isdir( outdir ) == False:

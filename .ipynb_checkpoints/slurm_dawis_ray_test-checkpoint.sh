@@ -12,5 +12,6 @@ source /home/ellien/.bashrc
 conda activate dawis
 #ray start --head --port=6379 &
 
-python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO_ray_test.py
+#python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_ERO_ray_test.py
+python -u -W"ignore" /home/ellien/Euclid_ERO/Euclid_ERO_scripts/dawis_cirrus_NISP_ray.py
 exit 0
