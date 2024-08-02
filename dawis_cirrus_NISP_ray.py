@@ -15,7 +15,7 @@ infile_list = ['Final_output_JGM_Abellfinal_psf_sub_Hv1_Callummock.rot.crop.warp
 #outdir = '/home/aellien/Euclid_ERO/wavelets/out11'
 outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out13/'
 tau = 0.1   # Relative Threshold
-gamma = 1.0   # Attenuation (CLEAN) factor
+gamma = 0.5   # Attenuation (CLEAN) factor
 
 ceps = 1E-4    # Convergence value for epsilon
 scale_lvl_eps = 1 # Scale convergence value with wavelet scale
