@@ -1,5 +1,5 @@
 #!/bin/bash
-for file in /n03data/ellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3/vignets/*fits
+for file in /n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/vignets/*fits
 do
   njobs=$((${njobs}+1))
   echo "Launch Dawis on file ${file}"
