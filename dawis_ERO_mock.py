@@ -45,7 +45,7 @@ n_cpus = 1
 size_patch = 100 # Number of objects in parallelized patch
 
 if os.path.isdir( outdir ) == False:
-    os.makedirs( outdir, exist_ok = True )euclid_ERO.50530.out
+    os.makedirs( outdir, exist_ok = True )
 
 shutil.copyfile( os.path.abspath(__file__), os.path.join( outdir, 'input.dawis.py' ) )
 
