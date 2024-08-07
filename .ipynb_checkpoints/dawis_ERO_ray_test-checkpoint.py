@@ -7,8 +7,8 @@ import ray
 
 indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 #indir = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
-infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.fits'))]
-outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out7/'
+infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.synth.cirrus_lvl6.bkg_sub.input.fits'))]
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out15/'
 #outdir = '/home/aellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out6/'
 
 tau = 0.1   # Relative Threshold
