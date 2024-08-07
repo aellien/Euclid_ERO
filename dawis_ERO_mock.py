@@ -8,8 +8,8 @@ indir = sys.argv[1]
 infile = sys.argv[2]
 outdir = sys.argv[3]
 
-tau = 0.1   # Relative Threshold
-gamma = 0.5   # Attenuation (CLEAN) factor
+tau = 0.5   # Relative Threshold
+gamma = 0.2   # Attenuation (CLEAN) factor
 
 ceps = 1E-4    # Convergence value for epsilon
 scale_lvl_eps = 1 # Scale convergence value with wavelet scale
@@ -22,7 +22,7 @@ max_span = 2    # Maximum number of wavelet scales spanned by an interscale tree
 deblend_contrast = 0.01 # contrast parameter for deblending
 lvl_deblend = 4 # Scale at which the regions of significant wavelet coefficients are deblended
 lvl_sep_big = 6     # Scale at wich mix_span, max_span & gamma are set to 1, and monomodality is enforced
-lvl_sep_op = 4  # Scale at which synthesis operator switch from SUM to ADJOINT
+lvl_sep_op = 5  # Scale at which synthesis operator switch from SUM to ADJOINT
 rm_gamma_for_big = True # If set to true, the attenuation factor is not applied for scales higher than lvl_sep_big
 
 extent_sep = 0.15   # Ratio n_pix/vignet under which the Haar wavelet is used for restoration
