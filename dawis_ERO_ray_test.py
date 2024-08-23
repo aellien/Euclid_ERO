@@ -8,11 +8,11 @@ import ray
 indir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 #indir = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
 infile_list = [os.path.basename(x) for x in glob.glob(os.path.join(indir, 'Euclid-NISP-?-ERO-Abell2390-LSB.DR3.crop.synth.cirrus_lvl6.bkg_sub.input.fits'))]
-outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out15/'
+outdir = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out16/'
 #outdir = '/home/aellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out6/'
 
 tau = 0.1   # Relative Threshold
-gamma = 0.5   # Attenuation (CLEAN) factor
+gamma = 0.7   # Attenuation (CLEAN) factor
 
 ceps = 1E-4    # Convergence value for epsilon
 scale_lvl_eps = 1 # Scale convergence value with wavelet scale
@@ -25,7 +25,7 @@ max_span = 2    # Maximum number of wavelet scales spanned by an interscale tree
 deblend_contrast = 0.01 # contrast parameter for deblending
 lvl_deblend = 3 # Scale at which the regions of significant wavelet coefficients are deblended
 lvl_sep_big = 5     # Scale at wich mix_span, max_span & gamma are set to 1, and monomodality is enforced
-lvl_sep_op = 4  # Scale at which synthesis operator switch from SUM to ADJOINT
+lvl_sep_op = 3  # Scale at which synthesis operator switch from SUM to ADJOINT
 rm_gamma_for_big = True # If set to true, the attenuation factor is not applied for scales higher than lvl_sep_big
 
 extent_sep = 0.15   # Ratio n_pix/vignet under which the Haar wavelet is used for restoration
