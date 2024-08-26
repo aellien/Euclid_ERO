@@ -103,7 +103,7 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
     yc = ys / 2.
 
     ######################################## MEMORY v
-    opath = nfp + '*ol.it*.hdf5'
+    opath = nfwp + '*ol.it*.hdf5'
     opathl = glob.glob(opath)
     opathl.sort()
     memory = []
@@ -189,7 +189,7 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
                     if (lvlo >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
 
                         #%%%%% Je laisse au cas où %%%%% v
-                        coo_spur_halo =  [ [2142, 2216], [1890, 2270] ] # pix long, ds9 convention
+                        coo_spur_halo =  [] # pix long, ds9 convention
                         flag = False
                         for ygal, xgal in coo_spur_halo:
 
