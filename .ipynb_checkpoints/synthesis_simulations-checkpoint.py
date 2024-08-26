@@ -81,72 +81,186 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
     '''
     # path, list & variables
     icl = np.zeros( (xs, ys) )
-    icl_err = np.zeros( (xs, ys) )
+    icl_dei = np.zeros( (xs, ys) )
+    gal = np.zeros( (xs, ys) )
+    gal_dei = np.zeros( (xs, ys) )
     im_art = np.zeros( (xs, ys) )
-    recim = np.zeros( (xs, ys) )
     im_unclass = np.zeros( (xs, ys) )
+    im_unclass_dei = np.zeros( (xs, ys) )
+    recim = np.zeros( (xs, ys) )
 
-    icl_al = []
-    gal_al = []
-    noticl_al = []
-    unclass_al = []
-    
-    wrl = [] # reconstruction error list
+    tot_icl_al = []
+    tot_gal_al = []
+    #tot_noticl_al = []
+    icl_boot_al = []
 
-    # Read atoms
-    ol, itl = d.read_image_atoms( nfwp, file_format = 'hdf5', verbose = True )
+    #%
+    at_test = []
+    #%
 
-    # Kurtosis + ICL+BCG
-    for j, o in enumerate(ol):
+    xc = xs / 2.
+    yc = ys / 2.
 
-        x_min, y_min, x_max, y_max = o.bbox
-        sx = x_max - x_min
-        sy = y_max - y_min
-        itm = itl[j].interscale_maximum
-        xco = itm.x_max
-        yco = itm.y_max
+    ######################################## MEMORY v
+    opath = nfp + '*ol.it*.hdf5'
+    opathl = glob.glob(opath)
+    opathl.sort()
+    memory = []
+    marea = []
+    for i, op in enumerate(opathl):
         
-        recim[ x_min : x_max, y_min : y_max ] += o.image
+        print('Iteration %d' %(i))#, end ='\r')
+        #snapshot = tracemalloc.take_snapshot()
+        #top_stats = snapshot.statistics('lineno')
+        #print(top_stats[0])
+        #memory.append(top_stats[0].size/1e9)
+        
+        
+        #ol = d.store_objects.read_ol_from_hdf5(op)
+        #itl = d.store_objects.read_itl_from_hdf5(itlp)
+        with h5py.File(op, "r") as f1:
+            gc.collect()
+            icl_al = []
+            gal_al = []
+            noticl_al = []
+            unclass_al = []
+            areal = []
+            for o in f1.keys():
 
-        if kurt_filt == True:
-            k = kurtosis(o.image.flatten(), fisher=True)
-            if k < 0:
-                im_art[ x_min : x_max, y_min : y_max ] += o.image
-                continue
+                x_min, y_min, x_max, y_max = np.copy(f1[o]['bbox'][()])
+                image = np.copy(f1[o]['image'][()])
+                det_err_image = np.copy(f1[o]['det_err_image'][()])
+                lvlo = np.copy(f1[o]['level'][()])
+                ######################################## MEMORY ^
+            
+                sx = x_max - x_min
+                sy = y_max - y_min
+                areal.append(sx*sy)
+                m = detect_sources(image, threshold = 0., npixels=1)
+                c = SourceCatalog(image, m)
+                xco = int(c.centroid_quad[0][1] + x_min)
+                yco = int(c.centroid_quad[0][0] + y_min)
+            
+                if kurt_filt == True:
+                    k = kurtosis(image.flatten(), fisher=True)
+                    if k < 0:
+                        im_art[ x_min : x_max, y_min : y_max ] += image
+                        gc.collect()
+                        continue
+        
+                # Remove background, and add it to bootstrap if center is within ICL ellipse
+                if lvlo >= lvl_sep_max:
+                    if mscell[xco, yco] == 1:
+                        icl_boot_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                    continue
+        
+                # Only atoms within analysis radius
+                dR = np.sqrt( (xc - xco)**2 + (yc - yco)**2 )
+                if dR > R:
+                    continue
+    
+                # ICL + BCG
+                if (mscstar[xco, yco] != 1) & (mscell[xco, yco] == 1):
+    
+                    '''# BCG
+                    xbcg, ybcg = [ xs, ys ] # pix long, ds9 convention
+                    if mscbcg[xco, yco] == 1:
+    
+                        dr = np.sqrt( (xbcg - xco)**2 + (ybcg - yco)**2 )
+                        if (o.level <= 3) & (dr < rc_pix):
+    
+                            icl[ x_min : x_max, y_min : y_max ] += o.image
+                            icl_al.append([o, xco, yco])
+    
+                        elif o.level >= 4:
+                            icl[ x_min : x_max, y_min : y_max ] += o.image
+                            icl_al.append([o, xco, yco])'''
+                            
+                    # BCG
+                    if mscbcg[xco, yco] == 1:
+                        icl[ x_min : x_max, y_min : y_max ] += image
+                        icl_dei[ x_min : x_max, y_min : y_max ] += det_err_image
+                        icl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                        tot_icl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                        continue
+    
+                    # ICL
+                    if (lvlo >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
 
-        # Remove background
-        if o.level >= lvl_sep_max:
-            continue
+                        #%%%%% Je laisse au cas où %%%%% v
+                        coo_spur_halo =  [ [2142, 2216], [1890, 2270] ] # pix long, ds9 convention
+                        flag = False
+                        for ygal, xgal in coo_spur_halo:
 
-        # ICL + BCG
-        if mscicl[xco, yco] == 1:
-
-            # BCG
-            if mscbcg[xco, yco] == 1:
-                icl[ x_min : x_max, y_min : y_max ] += o.image
-                icl_err[ x_min : x_max, y_min : y_max ] += o.det_err_image
-                icl_al.append([o, xco, yco])
-                wrl.append(o.norm_wr)
-                
-            # ICL
-            else:
-
-                if (o.level >= lvl_sep) & (sx >= size_sep_pix) & (sy >= size_sep_pix):
-
-                    icl[ x_min : x_max, y_min : y_max ] += o.image
-                    icl_err[ x_min : x_max, y_min : y_max ] += o.det_err_image
-                    icl_al.append([o, xco, yco])
-                    wrl.append(o.norm_wr)
-                    
+                            dr = np.sqrt( (xgal - xco)**2 + (ygal - yco)**2 )
+                            if (dr <= 100) & (4 < lvlo < 7 ):
+                                flag = True
+                        #%%%%%%% ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                            
+                        if flag == False:
+                            icl[ x_min : x_max, y_min : y_max ] += image
+                            icl_dei[ x_min : x_max, y_min : y_max ] += det_err_image
+                            icl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                            tot_icl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                            at_test.append([xco, yco])
+                            continue
+                        
+                        noticl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                            
+                    else:
+                        noticl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
                 else:
-                    im_unclass[ x_min : x_max, y_min : y_max ] += o.image
-                    if mscann[xco, yco] == 1:
-                        noticl_al.append([o, xco, yco])
+                    noticl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                    
+            # Galaxies
+            for j, (image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo) in enumerate(noticl_al):
+                
+                # Satellites
+                if (mscstar[xco, yco] != 1) & (lvlo < lvl_sep) & (msat[xco, yco] == 1):
 
-        else:
-            im_unclass[ x_min : x_max, y_min : y_max ] += o.image
-            if mscann[xco, yco] == 1:
-                noticl_al.append([ o, xco, yco ])
+                    gal[ x_min : x_max, y_min : y_max ] += image
+                    gal_dei[ x_min : x_max, y_min : y_max ] += det_err_image
+                    gal_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                    tot_gal_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+
+                    # add 'tendencious' galaxy atoms to list for bootstrap
+                    if ( lvlo == (lvl_sep - 1)) & (mscell[xco, yco] == 1):
+                        icl_boot_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo]) 
+                        
+                # If not identified as galaxies --> test if BCG again
+                else:
+                    unclass_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+
+            # Test for unclassified atoms --> sometimes extended BCG halo is missed because
+            # of the nature of wavsep scheme.
+            for j, (image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo) in enumerate(unclass_al):
+                
+                # Case in which it is possible that it is BCG halo?
+                if (lvl_sep > lvl_sep_bcg) & (lvlo >= lvl_sep_bcg) & (np.sqrt( (xc - xco)**2 + (yc - yco)**2 ) < 100) :
+                    icl[ x_min : x_max, y_min : y_max ] += image
+                    icl_dei[ x_min : x_max, y_min : y_max ] += det_err_image
+                    icl_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+    
+                #If not --> unclassified 
+                else:
+                    im_unclass[ x_min : x_max, y_min : y_max ] += image
+                    im_unclass_dei[ x_min : x_max, y_min : y_max ] += det_err_image
+                    
+                    #  add tendencious atoms to list for bootstrap (arbitrary conditions)
+                    if ( lvlo == (lvl_sep - 1)) & (mscell[xco, yco] == 1):
+                        icl_boot_al.append([image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo])
+                        
+            marea.append(np.mean(areal))
+            print(len(tot_icl_al), len(tot_gal_al), len(icl_boot_al))
+
+            recim[ x_min : x_max, y_min : y_max ] += image
+            
+    # clear some memory
+    gc.collect()
+    icl_al.clear()
+    gal_al.clear()
+    noticl_al.clear()
+    unclass_al.clear()
 
     if write_fits == True:
         print('\nWS + SF + SS -- ICL+BCG -- write fits as %s*'%(nfap))
@@ -255,6 +369,8 @@ if __name__ == '__main__':
         nf = nfp.split('/')[-1]
         split = nf.split('_')
         num_vignet = split[-1][0]
+
+        print(nfp)
           
         hdu = fits.open(nfp)
         head = hdu[0].header

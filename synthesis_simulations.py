@@ -369,6 +369,8 @@ if __name__ == '__main__':
         nf = nfp.split('/')[-1]
         split = nf.split('_')
         num_vignet = split[-1][0]
+
+        print(nfp)
           
         hdu = fits.open(nfp)
         head = hdu[0].header
