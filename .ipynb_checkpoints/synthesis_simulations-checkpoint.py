@@ -316,7 +316,7 @@ if __name__ == '__main__':
     # Paths, lists & variables
     path_data = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/vignets'
     path_wavelets = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out14/'
-    path_analysis = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/'
+    path_analysis = '/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/wavelets/out14/'
 
     # spatial scales related
     pix_scale = 0.3 # "/pix
@@ -353,7 +353,6 @@ if __name__ == '__main__':
     plot_boot = True
     
     mscicl = fits.getdata('/n03data/ellien/Euclid_ERO/Euclid-NISP-Stack-ERO-Abell2390.DR3/icl_mock_circle_2arcmin_vignet.fits')
-    #mscbcg = fits.getdata('/n03data/ellien/Euclid_ICL/simulations/out2/mscbcg.fits')
     
     col_ICL_flux = []
     col_tot_err_up = []
@@ -380,18 +379,17 @@ if __name__ == '__main__':
         xc, yc = xs / 2., ys / 2.
 
         mscbcg = np.zeros((xs, ys))
+        mscann = np.ones((xs, ys))
         
         nf = nfp.split('/')[-1][:-5]
         
-        #/n03data/ellien/Euclid_ICL/wavelets/out2/360009933000018/360009933000018_EUC_NIR_W-STK-IMAGE_H_z_0.3_fICL0.15_re_1.0_galsim_swarp_grid_bgsub_vignet_2/
         nfwp = os.path.join(path_wavelets, nf)
         
-        # /n03data/ellien/Euclid_ICL/analysis/out2/373000139000019
         nfap = path_data
 
         ficl, tot_err_up, tot_err_low = synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_sep_bcg,
                                            size_sep, size_sep_pix, xs, ys,
-                                           n_lvl, mscicl, mscbcg, mscann,
+                                           n_levels, mscicl, mscbcg, mscann,
                                            N_err = N_err,
                                            per_err = per_err,
                                            kurt_filt = kurt_filt,
