@@ -98,6 +98,9 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
     #tot_noticl_al = []
     icl_boot_al = []
 
+    mscell = mscicl
+    mscstar = np.zeros((xs, ys))
+    
     #%
     at_test = []
     #%
