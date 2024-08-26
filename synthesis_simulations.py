@@ -70,7 +70,7 @@ def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, mscann):
     return flux_sample, mean_flux, low_err, up_err
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscicl, mscbcg, mscann, N_err, per_err, kurt_filt = True, plot_vignet = False, write_fits = True, measure_flux = False ):
+def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscicl, mscbcg, mscann, N_err, per_err, kurt_filt = True, plot_vignet = False, write_fits = True ):
     '''Wavelet Separation + Spatial filtering.
     ICL --> Atoms with z > lvl_sep, with maximum coordinates within ellipse mask 'mscell' and with size > size_sep_pix.
     Galaxies --> Satellites + BCG, so a bit complicated:
@@ -394,8 +394,7 @@ if __name__ == '__main__':
                                            per_err = per_err,
                                            kurt_filt = kurt_filt,
                                            plot_vignet = plot_vignet,
-                                           write_fits = write_fits,
-                                           measure_flux = measure_flux )
+                                           write_fits = write_fits )
                 
         col_ICL_flux.append(ficl)
         col_tot_err_up.append(tot_err_up)
