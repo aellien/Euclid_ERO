@@ -279,8 +279,8 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
 
     # Measure Fractions and uncertainties
     #wr = np.sum(np.array(wrl)**2)
-    det_err = np.sum(icl_err**2)
-    flux_sample, F_ICL_m, F_ICL_low, F_ICL_up = selection_error(icl_al, noticl_al, M = N_err, percent = per_err, xs = xs, ys = ys, mscann = mscann)
+    det_err = np.sum(icl_dei**2)
+    flux_sample, F_ICL_m, F_ICL_low, F_ICL_up = selection_error(tot_icl_al, icl_boot_al, M = N_err, percent = per_err, xs = xs, ys = ys, mscann = mscann)
     
     icl_flux = np.sum(icl[mscann.astype(bool)])
     sel_err_up = F_ICL_up - F_ICL_m
