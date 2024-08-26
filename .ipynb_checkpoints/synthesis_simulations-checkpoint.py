@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.visualization import *
 from scipy.stats import kurtosis
+import h5py
 from cosmo_calc import cosmo_calc
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
