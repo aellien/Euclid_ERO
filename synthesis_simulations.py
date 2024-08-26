@@ -18,6 +18,8 @@ from astropy.visualization import *
 from scipy.stats import kurtosis
 import h5py
 from cosmo_calc import cosmo_calc
+from photutils.segmentation import SourceCatalog, detect_sources
+
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, mscann):
