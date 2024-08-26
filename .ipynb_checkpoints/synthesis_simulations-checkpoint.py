@@ -369,7 +369,7 @@ if __name__ == '__main__':
     col_cl_name = []
     col_num_vignet = []
     
-    for nfp in glob.glob(os.path.join(path_data, '*_1.fits' )):
+    for nfp in glob.glob(os.path.join(path_data, '*_?.fits' )):
                 
         nf = nfp.split('/')[-1]
         split = nf.split('_')
@@ -387,7 +387,7 @@ if __name__ == '__main__':
         mscbcg = np.zeros((xs, ys))
         mscann = np.ones((xs, ys))
         
-        nf = nfp.split('/')[-1][:-5]
+        nf = nf[:-5]
         
         nfwp = os.path.join(path_wavelets, nf)
         
