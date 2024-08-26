@@ -100,6 +100,7 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
 
     mscell = mscicl
     mscstar = np.zeros((xs, ys))
+    msat = np.zeros((xs, ys))
     
     #%
     at_test = []
