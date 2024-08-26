@@ -369,7 +369,7 @@ if __name__ == '__main__':
     col_cl_name = []
     col_num_vignet = []
     
-    for nfp in glob.glob(os.path.join(path_data, '*_?.fits' )):
+    for nfp in glob.glob(os.path.join(path_data, '*vignet_?.fits' )):
                 
         nf = nfp.split('/')[-1]
         split = nf.split('_')
