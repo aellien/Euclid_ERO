@@ -11,6 +11,7 @@ import dawis as d
 import numpy as np
 import pandas as pd
 import random
+import gc
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.visualization import *
