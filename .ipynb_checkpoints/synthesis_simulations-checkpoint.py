@@ -405,7 +405,6 @@ if __name__ == '__main__':
         col_ICL_flux.append(ficl)
         col_tot_err_up.append(tot_err_up)
         col_tot_err_low.append(tot_err_low)
-        col_cl_name.append(cluster_name)
         col_re.append(re)
         col_fICL.append(fICL)
         col_z.append(z)
