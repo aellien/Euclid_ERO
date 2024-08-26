@@ -405,9 +405,6 @@ if __name__ == '__main__':
         col_ICL_flux.append(ficl)
         col_tot_err_up.append(tot_err_up)
         col_tot_err_low.append(tot_err_low)
-        col_re.append(re)
-        col_fICL.append(fICL)
-        col_z.append(z)
         col_num_vignet.append(num_vignet)
     
     df = pd.DataFrame(columns = ['cl_name', 'num_vignet', 'ICL_flux', 'ICL_flux_err_hi', 'ICL_flux_err_low'])
