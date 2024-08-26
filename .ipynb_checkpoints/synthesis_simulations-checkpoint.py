@@ -20,8 +20,7 @@ import h5py
 from cosmo_calc import cosmo_calc
 from photutils.segmentation import SourceCatalog, detect_sources
 
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#
 def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, mscann):
     '''Computation of classification error on flux.
     '''
@@ -51,10 +50,8 @@ def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, mscann):
             draw2 = random.sample(atom_out_list, s - len(atom_in_list) + r)
             draw = draw1 + draw2
 
-        for (o, xco, yco) in draw:
-            x_min, y_min, x_max, y_max = o.bbox
-            
-            im_s[ x_min : x_max, y_min : y_max ] += o.image
+        for (image, det_err_image, x_min, y_min, x_max, y_max, xco, yco, lvlo) in draw:            
+            im_s[ x_min : x_max, y_min : y_max ] += image
             #flux += np.sum(o.image)
 
         flux = np.sum(im_s[mscann.astype(bool)])
@@ -72,6 +69,7 @@ def selection_error(atom_in_list, atom_out_list, M, percent, xs, ys, mscann):
     #plt.show()
 
     return flux_sample, mean_flux, low_err, up_err
+
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_sep_bcg, size_sep, size_sep_pix, xs, ys, n_levels, mscicl, mscbcg, mscann, N_err, per_err, kurt_filt = True, plot_vignet = False, write_fits = True ):
@@ -403,7 +401,7 @@ if __name__ == '__main__':
                                            kurt_filt = kurt_filt,
                                            plot_vignet = plot_vignet,
                                            write_fits = write_fits )
-                
+
         col_ICL_flux.append(ficl)
         col_tot_err_up.append(tot_err_up)
         col_tot_err_low.append(tot_err_low)
