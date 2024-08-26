@@ -278,15 +278,15 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
         hduo.writeto( nfap + '.synth.icl.bcgwavsizesepmask_%03d_%03d.fits'%(lvl_sep, size_sep), overwrite = True )
 
     # Measure Fractions and uncertainties
-    wr = np.sum(np.array(wrl)**2)
+    #wr = np.sum(np.array(wrl)**2)
     det_err = np.sum(icl_err**2)
     flux_sample, F_ICL_m, F_ICL_low, F_ICL_up = selection_error(icl_al, noticl_al, M = N_err, percent = per_err, xs = xs, ys = ys, mscann = mscann)
     
     icl_flux = np.sum(icl[mscann.astype(bool)])
     sel_err_up = F_ICL_up - F_ICL_m
     sel_err_low = F_ICL_m - F_ICL_low
-    tot_err_up = np.sqrt( wr + det_err + sel_err_up**2 )
-    tot_err_low = np.sqrt( wr + det_err + sel_err_low**2 )
+    tot_err_up = np.sqrt( det_err + sel_err_up**2 )
+    tot_err_low = np.sqrt( det_err + sel_err_low**2 )
 
     print('\nWS + SF + SS -- ICL+BCG -- z = %d    sise_sep = %d'%(lvl_sep, size_sep))
     print('N = %4d   F_ICL = %f ADU  err_low = %f ADU  err_up = %f ADU'%(len(icl_al), F_ICL_m, F_ICL_low, F_ICL_up))
