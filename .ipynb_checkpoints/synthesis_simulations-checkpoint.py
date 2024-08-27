@@ -406,9 +406,10 @@ if __name__ == '__main__':
         col_tot_err_up.append(tot_err_up)
         col_tot_err_low.append(tot_err_low)
         col_num_vignet.append(num_vignet)
+        col_cl_name.append(nf)
     
     df = pd.DataFrame(columns = ['cl_name', 'num_vignet', 'ICL_flux', 'ICL_flux_err_hi', 'ICL_flux_err_low'])
-    df['cl_name'] = nf
+    df['cl_name'] = col_cl_name
     df['num_vignet'] = col_num_vignet
     df['ICL_flux'] = col_ICL_flux
     df['ICL_flux_err_hi'] = col_tot_err_up
