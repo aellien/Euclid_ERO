@@ -410,7 +410,7 @@ if __name__ == '__main__':
         
         nfwp = os.path.join(path_wavelets, nf)
         
-        nfap = path_data
+        nfap = nfwp
 
         ficl, tot_err_up, tot_err_low = synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_sep_bcg,
                                            size_sep, size_sep_pix, xs, ys,

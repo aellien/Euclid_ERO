@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # Paths, lists & variables
     path_data = '/home/aellien/Euclid_ERO/data/Euclid-NISP-Stack-ERO-Abell2390.DR3'
     path_scripts = '/home/aellien/Euclid_ERO/Euclid_ERO_scripts'
-    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out7/'
+    path_wavelets = '/home/aellien/Euclid_ERO/wavelets/out16/test'
     path_plots = '/home/aellien/Euclid_ERO/plots'
     path_analysis = '/home/aellien/Euclid_ERO/analysis/'
     
@@ -34,21 +34,21 @@ if __name__ == '__main__':
     r = pyr.open('/home/aellien/Euclid_ERO/analysis/mask_top_half_cl.reg')
     
     
-    for input_file in glob.glob(os.path.join(path_data, '*crop.fits')):
+    for nfp in glob.glob(os.path.join(path_wavelets, '*.fits')):
         
-        hdu = fits.open(input_file)
-        oim = hdu[0].data
-        xs, ys = oim.shape
-        print(input_file)
+        #hdu = fits.open(input_file)
+        #oim = hdu[0].data
+        #xs, ys = oim.shape
+        #print(input_file)
         
-        nf = input_file.split('/')[-1][:-5]
-        nfp = os.path.join(path_wavelets, nf + '.synth.bcgwavsizesepmask_005_100.fits')
+        nf = nfp.split('/')[-1][:-5]
         hdu = fits.open(nfp)
         
         icl = hdu[1].data
         icl_err = hdu[5].data
         gal = hdu[2].data
         gal_err = hdu[6].data
+        xs, ys = icl.shape
         
         m = r.get_mask(hdu = hdu[1])
         #icl[m] = 0
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         #icl = gaussian_filter(icl, 20)
         
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize = (15,5))
-        ax1.imshow(oim, origin = 'lower', cmap = 'grey', norm = ImageNormalize(oim, interval = ZScaleInterval(), stretch = LinearStretch()))
+        #ax1.imshow(oim, origin = 'lower', cmap = 'grey', norm = ImageNormalize(oim, interval = ZScaleInterval(), stretch = LinearStretch()))
         ax2.imshow(icl, origin = 'lower', cmap = 'grey', norm = ImageNormalize(icl, interval = MinMaxInterval(), stretch = LogStretch()))
         
         plt.suptitle('Bande %s'%nf[12])
@@ -86,6 +86,7 @@ if __name__ == '__main__':
         ax3.set_xlabel('r[kpc]')
         ax3.set_ylabel(r'$\mu$ [mag/arcsec$^2$]')
         ax3.set_title('BCG+ICL radial profile')
+        ax3.set_xscale('log')
         plt.legend()
         plt.tight_layout()
         plt.savefig(os.path.join(path_plots,'icl_rec_rp_%s_band.png'%nf[12]), format = 'png')       
@@ -104,13 +105,14 @@ if __name__ == '__main__':
     plt.title('color radial profile')
 
     idx = np.min([np.size(rpl[2][0]), np.size(rpl[1][0])])
-    plt.plot(rad_kpc[:idx], rpl[2][0][:idx]-rpl[1][0][:idx], 'ro', label = 'H-J')
+    plt.plot(rad_kpc[:idx], -rpl[2][0][:idx]+rpl[1][0][:idx], 'ro', label = 'J-H')
 
     idx = np.min([np.size(rpl[2][0]), np.size(rpl[0][0])])
-    plt.plot(rad_kpc[:idx], rpl[2][0][:idx]-rpl[0][0][:idx], 'go', label = 'H-Y')
+    plt.plot(rad_kpc[:idx], -rpl[2][0][:idx]+rpl[0][0][:idx], 'go', label = 'Y-H')
     
     plt.legend()
-    plt.gca().invert_yaxis()
+    #plt.gca().invert_yaxis()
+    plt.xscale('log')
     plt.savefig(os.path.join(path_plots,'rcolor.png'), format = 'png')
     
     plt.figure()
