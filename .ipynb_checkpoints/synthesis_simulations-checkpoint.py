@@ -315,7 +315,22 @@ def synthesis_bcgwavsizesep_with_masks( nfwp, nfap, lvl_sep, lvl_sep_max, lvl_se
         plt.close('all')
     
     return icl_flux, tot_err_up, tot_err_low
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+def make_annuli_mask(z, H0, Om_M, Om_Lam, xs, ys, xc, yc, pix_scale):
 
+    kpc_DA = cosmo_calc(['cosmo_calc.py', str(z), str(H0), str(Om_M), str(Om_Lam)]) # kpc/arcsec
+    r50 = 100 / kpc_DA / pix_scale
+    r200 = 500 / kpc_DA / pix_scale
+    
+    mask = np.ones((xs, ys))
+
+    Y, X = np.ogrid[:xs, :ys]
+    dist_from_center = np.sqrt((X - xc)**2 + (Y-yc)**2)
+
+    mask[dist_from_center < r50] = 0.
+    mask[dist_from_center > r200] = 0.
+    
+    return mask 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
 
@@ -334,7 +349,11 @@ if __name__ == '__main__':
     R = R_pix
     rc = 10 # kpc, distance to center to be classified as gal
     rc_pix = rc / physcale / pix_scale # pixels
-                
+    z = 0.228
+    H0 = 70.0 # Hubble constant
+    Om_M = 0.3 # Matter density
+    Om_Lam = 0.7 # Energy density
+    
     # wavelet scales related
     lvl_sep = 5 # wavelet scale separation
     lvl_sep_bcg = 4
@@ -385,7 +404,7 @@ if __name__ == '__main__':
         xc, yc = xs / 2., ys / 2.
 
         mscbcg = np.zeros((xs, ys))
-        mscann = np.ones((xs, ys))
+        mscann = make_annuli_mask(z, H0, Om_M, Om_Lam, xs, ys, xc, yc, pix_scale)
         
         nf = nf[:-5]
         
